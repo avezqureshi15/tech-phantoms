@@ -129,6 +129,17 @@ def sarvam_api_key() -> str:
     return (os.getenv("SARVAM_API_KEY") or "").strip()
 
 
+def nudgebee_webhook_url() -> str:
+    """The NudgeBee workflow trigger URL, or an empty string (incidents are then not reported).
+    The URL itself grants the right to start the workflow, so it is a secret: never log it."""
+    return (os.getenv("NUDGEBEE_WEBHOOK_URL") or "").strip()
+
+
+def nudgebee_environment() -> str:
+    """The environment name sent with each incident, so one NudgeBee workflow can serve several."""
+    return (os.getenv("NUDGEBEE_ENVIRONMENT") or "production").strip()[:40]
+
+
 def ai_enabled() -> bool:
     """Utsav needs an OpenAI key; without one the AI routes answer 503."""
     return bool(openai_api_key())

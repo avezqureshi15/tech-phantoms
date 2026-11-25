@@ -8,12 +8,13 @@ from festiveos.ai.service import AIService
 from festiveos.config import ai_enabled, get_settings
 from festiveos.db.dependencies import SessionDep
 from festiveos.integrations.flags import FeatureFlags, get_feature_flags
+from festiveos.integrations.nudgebee import get_incidents
 
 
 @lru_cache
 def _shared_llm() -> LLM:
     """One client (and connection pool) per process."""
-    return build_llm(get_settings(), get_feature_flags())
+    return build_llm(get_settings(), get_feature_flags(), get_incidents())
 
 
 def get_llm() -> LLM | None:

@@ -30,6 +30,7 @@ import requests
 from festiveos.config import Settings, openai_api_key
 from festiveos.core.errors import ServiceUnavailableError
 from festiveos.integrations.flags import FeatureFlags
+from festiveos.integrations.nudgebee import IncidentReporter
 
 LOGGER = logging.getLogger("festiveos.ai.llm")
 
@@ -278,8 +279,10 @@ class OpenAILLM:
         session: requests.Session | None = None,
         sleep: Callable[[float], None] = time.sleep,
         overrides: Callable[[], tuple[str | None, str | None]] | None = None,
+        incidents: IncidentReporter | None = None,
     ) -> None:
         self._settings = settings
+        self._incidents = incidents
         self._overrides = overrides
         self._api_key = api_key if api_key is not None else openai_api_key()
         self._session = session or requests.Session()
@@ -395,6 +398,8 @@ class OpenAILLM:
                     raise ServiceUnavailableError(UNAVAILABLE) from exc
             else:
                 if response.status_code == 200:
+                    if self._incidents is not None:  # every model call costs: watch the rate
+                        self._incidents.record("utsav", "ai_usage_spike")
                     return response
                 request_id = response.headers.get("x-request-id")
                 if stream:
@@ -413,9 +418,10 @@ class OpenAILLM:
                 min(retry_after if retry_after is not None else backoff, MAX_RETRY_WAIT_SECONDS)
             )
 
-    @staticmethod
-    def _log_failure(exc: Exception, *, status: int | None, request_id: str | None) -> None:
+    def _log_failure(self, exc: Exception, *, status: int | None, request_id: str | None) -> None:
         # Type, status and the provider's request id only: a message can echo prompt text.
+        if self._incidents is not None:
+            self._incidents.record("utsav", "ai_provider_errors")
         LOGGER.error(
             "ai provider call failed",
             extra={
@@ -435,6 +441,10 @@ def _retry_after(response: requests.Response) -> float | None:
         return None
 
 
-def build_llm(settings: Settings, flags: FeatureFlags | None = None) -> LLM:
+def build_llm(
+    settings: Settings,
+    flags: FeatureFlags | None = None,
+    incidents: IncidentReporter | None = None,
+) -> LLM:
     overrides = (lambda: (flags.ai_model(), flags.ai_effort())) if flags else None
-    return OpenAILLM(settings, overrides=overrides)
+    return OpenAILLM(settings, overrides=overrides, incidents=incidents)

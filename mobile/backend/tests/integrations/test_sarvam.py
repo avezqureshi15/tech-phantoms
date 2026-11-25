@@ -228,3 +228,73 @@ def test_reading_documents_keeps_its_longer_patience() -> None:
         sarvam.translate("Hello", source="en-IN", target="hi-IN")
 
     assert len(session.calls) == 3
+
+
+# ------------------------------------------------------------------------------ NudgeBee incidents
+
+
+class Incidents:
+    def __init__(self) -> None:
+        self.recorded: list[tuple[str, str]] = []
+
+    def record(self, feature: str, reason: str) -> None:
+        self.recorded.append((feature, reason))
+
+
+def reporting(*replies) -> tuple[SarvamClient, Incidents]:
+    incidents = Incidents()
+    sarvam = SarvamClient(
+        api_key="sk-test-secret",
+        session=Session(*replies),
+        sleep=lambda _s: None,
+        incidents=incidents,
+    )
+    return sarvam, incidents
+
+
+def test_out_of_credits_is_reported_for_the_feature_that_failed() -> None:
+    sarvam, incidents = reporting(Reply(402))
+
+    with pytest.raises(ServiceUnavailableError):
+        sarvam.speak("namaste", language="hi-IN")
+
+    assert incidents.recorded == [("utsav_voice", "sarvam_credits_exhausted")]
+
+
+@pytest.mark.parametrize(
+    ("call", "feature"),
+    [
+        (lambda s: s.transcribe(b"x", filename="a.m4a", content_type="audio/mp4"), "utsav_voice"),
+        (
+            lambda s: s.extract(b"x", filename="r.jpg", content_type="image/jpeg", schema="{}"),
+            "receipt_scan",
+        ),
+        (
+            lambda s: s.parse(b"x", filename="d.pdf", content_type="application/pdf"),
+            "document_upload",
+        ),
+    ],
+)
+def test_an_outage_is_reported_once_per_failed_call(call, feature) -> None:
+    sarvam, incidents = reporting(*[Reply(503)] * 3)
+
+    with pytest.raises(ServiceUnavailableError):
+        call(sarvam)
+
+    assert incidents.recorded == [(feature, "sarvam_errors")]  # after retries, not per attempt
+
+
+def test_a_bad_file_is_the_persons_problem_and_is_not_reported() -> None:
+    sarvam, incidents = reporting(Reply(422))
+
+    with pytest.raises(InvalidInputError):
+        sarvam.parse(b"x", filename="d.pdf", content_type="application/pdf")
+
+    assert incidents.recorded == []
+
+
+def test_a_call_that_recovers_is_not_reported() -> None:
+    sarvam, incidents = reporting(Reply(503), Reply(200, {"audios": ["aGk="]}))
+
+    assert sarvam.speak("namaste", language="hi-IN") == b"hi"
+    assert incidents.recorded == []

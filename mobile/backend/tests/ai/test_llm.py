@@ -420,3 +420,52 @@ def test_the_override_also_applies_to_streaming() -> None:
 
     assert session.calls[0]["json"]["model"] == "gpt-6-luna"
     assert session.calls[0]["json"]["reasoning"] == {"effort": "high"}
+
+
+# ------------------------------------------------------------------------------ NudgeBee incidents
+
+
+class Incidents:
+    def __init__(self) -> None:
+        self.recorded: list[tuple[str, str]] = []
+
+    def record(self, feature: str, reason: str) -> None:
+        self.recorded.append((feature, reason))
+
+
+def reporting(*outcomes) -> tuple[OpenAILLM, Incidents]:
+    incidents = Incidents()
+    llm = OpenAILLM(
+        SETTINGS,
+        api_key="sk-test-secret",
+        session=FakeSession(*outcomes),
+        sleep=lambda _s: None,
+        incidents=incidents,
+    )
+    return llm, incidents
+
+
+def test_every_successful_model_call_is_counted_for_usage_spikes() -> None:
+    llm, incidents = reporting(OK, OK)
+
+    complete(llm)
+    complete(llm)
+
+    assert incidents.recorded == [("utsav", "ai_usage_spike")] * 2
+
+
+def test_a_failed_model_call_is_reported_once_after_its_retries() -> None:
+    llm, incidents = reporting(*[FakeResponse(503)] * 3)
+
+    with pytest.raises(ServiceUnavailableError):
+        complete(llm)
+
+    assert incidents.recorded == [("utsav", "ai_provider_errors")]
+
+
+def test_a_retried_call_that_succeeds_is_not_a_failure() -> None:
+    llm, incidents = reporting(FakeResponse(503), OK)
+
+    complete(llm)
+
+    assert incidents.recorded == [("utsav", "ai_usage_spike")]

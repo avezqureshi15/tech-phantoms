@@ -21,11 +21,14 @@ import requests
 
 from festiveos.config import sarvam_api_key
 from festiveos.core.errors import InvalidInputError, ServiceUnavailableError
+from festiveos.integrations.nudgebee import IncidentReporter, get_incidents
 
 LOGGER = logging.getLogger("festiveos.sarvam")
 BASE = "https://api.sarvam.ai"
 TRANSLATE_MODEL = "sarvam-translate:v1"
 RETRYABLE = frozenset({408, 409, 429, 500, 502, 503, 504})
+OUT_OF_CREDITS = 402
+BAD_INPUT = frozenset({400, 413, 415, 422})  # the person's file, not a Sarvam problem
 MAX_RETRIES = 2
 MAX_RETRY_WAIT = 8.0
 # Speech is part of a live conversation: a person is waiting, and the app gives up on a reply after
@@ -72,7 +75,9 @@ class SarvamClient:
         clock: Callable[[], float] = time.monotonic,
         poll_seconds: float = 2.0,
         max_wait_seconds: float = 90.0,
+        incidents: IncidentReporter | None = None,
     ) -> None:
+        self._incidents = incidents
         self._key = api_key if api_key is not None else sarvam_api_key()
         self._session = session or requests.Session()
         self._sleep, self._clock = sleep, clock
@@ -107,6 +112,7 @@ class SarvamClient:
             data={"model": "saaras:v4", "mode": "transcribe"},
             timeout=SPEECH_TIMEOUT + 8,  # the clip has to be uploaded as well
             retries=SPEECH_RETRIES,
+            feature="utsav_voice",
         ).json()
         text = body.get("transcript")
         language = body.get("language_code")
@@ -128,6 +134,7 @@ class SarvamClient:
             },
             timeout=SPEECH_TIMEOUT,
             retries=SPEECH_RETRIES,
+            feature="utsav_voice",
         ).json()
         try:
             return base64.b64decode(body["audios"][0], validate=True)
@@ -152,6 +159,7 @@ class SarvamClient:
             filename,
             content_type,
             {"schema": schema, "language": language, "output_format": "json", "mode": "basic"},
+            feature="receipt_scan",
         )
         value = results.get("result")
         return value if isinstance(value, dict) else {}
@@ -160,13 +168,22 @@ class SarvamClient:
         self, data: bytes, *, filename: str, content_type: str, language: str = "en-IN"
     ) -> str:
         """The whole document as plain text."""
-        results = self._job("parse", data, filename, content_type, {"language": language})
+        results = self._job(
+            "parse", data, filename, content_type, {"language": language}, feature="document_upload"
+        )
         return blocks_to_text(results)
 
     # --------------------------------------------------------------------------------- internals
 
     def _job(
-        self, kind: str, data: bytes, filename: str, content_type: str, fields: dict[str, str]
+        self,
+        kind: str,
+        data: bytes,
+        filename: str,
+        content_type: str,
+        fields: dict[str, str],
+        *,
+        feature: str,
     ) -> dict[str, Any]:
         submitted = self._send(
             "POST",
@@ -174,6 +191,7 @@ class SarvamClient:
             files={"file": (filename, data, content_type)},
             data=fields,
             timeout=60,
+            feature=feature,
         ).json()
         job_id = submitted.get("job_id")
         if not isinstance(job_id, str):
@@ -181,9 +199,8 @@ class SarvamClient:
 
         started = self._clock()
         while True:
-            status = str(
-                self._send("GET", f"/doc-ai/v1/job/{job_id}/status").json().get("status", "")
-            ).lower()
+            polled = self._send("GET", f"/doc-ai/v1/job/{job_id}/status", feature=feature)
+            status = str(polled.json().get("status", "")).lower()
             if status in TERMINAL:
                 break
             if self._clock() - started > self._max_wait:
@@ -197,7 +214,7 @@ class SarvamClient:
                 extra={"fields": {"kind": kind, "status": status, "job_id": job_id}},
             )
             raise InvalidInputError(UNREADABLE)
-        return self._send("GET", f"/doc-ai/v1/job/{job_id}/results").json()
+        return self._send("GET", f"/doc-ai/v1/job/{job_id}/results", feature=feature).json()
 
     def _send(
         self,
@@ -206,10 +223,12 @@ class SarvamClient:
         *,
         timeout: float = 30,
         retries: int = MAX_RETRIES,
+        feature: str | None = None,
         **kwargs: Any,
     ) -> requests.Response:
         """One request, retried a bounded number of times with backoff and jitter. Reading and
-        translating change nothing on our side, so repeating a call is safe."""
+        translating change nothing on our side, so repeating a call is safe. A final failure that
+        is Sarvam's (not the person's file) counts towards a NudgeBee incident for ``feature``."""
         attempt = 0
         while True:
             try:
@@ -223,18 +242,26 @@ class SarvamClient:
             except requests.RequestException as exc:
                 if attempt >= retries:
                     self._log(method, path, None)
+                    self._incident(feature, None)
                     raise ServiceUnavailableError(UNAVAILABLE) from exc
             else:
                 if response.ok:
                     return response
                 if response.status_code not in RETRYABLE or attempt >= retries:
                     self._log(method, path, response.status_code)
-                    if response.status_code in (400, 413, 415, 422):
+                    if response.status_code in BAD_INPUT:
                         raise InvalidInputError(UNREADABLE)
+                    self._incident(feature, response.status_code)
                     raise ServiceUnavailableError(UNAVAILABLE)
             attempt += 1
             wait = min(2.0**attempt, MAX_RETRY_WAIT) * random.uniform(0.5, 1.0)  # noqa: S311
             self._sleep(wait)
+
+    def _incident(self, feature: str | None, status: int | None) -> None:
+        if self._incidents is None or feature is None:
+            return
+        reason = "sarvam_credits_exhausted" if status == OUT_OF_CREDITS else "sarvam_errors"
+        self._incidents.record(feature, reason)
 
     @staticmethod
     def _log(method: str, path: str, status: int | None) -> None:
@@ -248,7 +275,7 @@ class SarvamClient:
 
 @lru_cache
 def _shared() -> SarvamClient:
-    return SarvamClient()
+    return SarvamClient(incidents=get_incidents())
 
 
 def get_sarvam() -> SarvamClient | None:

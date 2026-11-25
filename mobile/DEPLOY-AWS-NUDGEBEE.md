@@ -97,6 +97,7 @@ Store every secret value in Secrets Manager. Names only here; see `backend/.env.
 | `ENABLE_API_DOCS` | no | `false` in the deployed environment |
 | `LOG_FORMAT` | no | `json` for CloudWatch |
 | `NUDGEBEE_WEBHOOK_URL` | yes | New; the URL of the NudgeBee workflow trigger (section 4). The URL itself grants the right to start the workflow, so treat it as a secret. |
+| `NUDGEBEE_ENVIRONMENT` | no | Sent with each incident, e.g. `production` or `demo` (default `production`) |
 | `DEMO_LOGIN_ENABLED` | no | New on the `demo` branch only. See section 6. |
 
 ---
