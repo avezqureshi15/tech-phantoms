@@ -17,17 +17,33 @@ import { useCities, useNearestCity, useToday, useUpdateProfile, type Where } fro
 import { useCurrentUser } from "@/lib/auth";
 import { deviceTimeZone, now } from "@/lib/clock";
 import { useToday as useTodayDate } from "@/lib/clock-context";
-import { addDays, daysBetween, formatDate, placeClock } from "@/lib/dates";
+import { addDays, daysBetween, formatDate, placeClock, spanParts } from "@/lib/dates";
 import { useDeviceLocation } from "@/lib/location";
 import { FAITHS, faithLabel } from "@/lib/meta";
-import type { Observance, PanchangSpan, Today } from "@/lib/schemas";
+import type { Observance, Today } from "@/lib/schemas";
 import { colors, radius, spacing } from "@/lib/theme";
 
 // v2: an earlier build recorded "asked" before the attempt, so a failed first try was never retried.
 const ASKED_KEY = "festiveos.location-asked.v2";
 
-const spanText = (spans: PanchangSpan[], day: string, paksha = false) =>
-  spans.map((s) => `${s.name}${paksha && s.paksha ? ` (${s.paksha})` : ""} until ${placeClock(s.end, day)}`);
+function SpanRow({ label, parts }: { label: string; parts: ReturnType<typeof spanParts> }) {
+  return (
+    <View style={{ gap: 4 }}>
+      <AppText variant="eyebrow" color={colors.muted}>
+        {label}
+      </AppText>
+      {parts.map((part) => (
+        <View key={`${part.name}${part.until}`} style={styles.span}>
+          <AppText style={{ flex: 1 }}>{part.name}</AppText>
+          <AppText color={part.nextDay ? colors.muted : colors.ink}>
+            until {part.until}
+            {part.nextDay ? " next day" : ""}
+          </AppText>
+        </View>
+      ))}
+    </View>
+  );
+}
 
 function Row({ label, values, tone }: { label: string; values: string[]; tone?: string }) {
   return (
@@ -113,8 +129,8 @@ function Prayers({ page, day, isToday, placeName }: { page: Today; day: string; 
           </View>
         ))}
         <AppText variant="caption" color={colors.muted}>
-          Calculated for {placeName} ({p.method}, {p.school} Asr). Your masjid&apos;s timetable
-          is the authority where it differs by a few minutes.
+          Calculated for {placeName} ({p.method}, {p.school} Asr). Your masjid&apos;s timetable is the authority where
+          it differs by a few minutes.
         </AppText>
       </View>
     </Card>
@@ -204,7 +220,11 @@ export default function TodayScreen() {
       <PageHeader title="Today" subtitle={`${placeName} · ${formatDate(date)}`} />
 
       <View style={styles.dayNav}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Previous day" onPress={() => setPicked(addDays(date, -1))}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Previous day"
+          onPress={() => setPicked(addDays(date, -1))}
+        >
           <Glass radius={20} interactive style={styles.navButton}>
             <Ionicons name="chevron-back" size={20} color={colors.maroon} />
           </Glass>
@@ -238,11 +258,19 @@ export default function TodayScreen() {
         <Card>
           <View style={{ gap: spacing.md }}>
             <AppText variant="heading">The five limbs</AppText>
-            <Row label={t.tithi} values={spanText(data.lunar.tithis, date, true)} />
-            <Row label={t.nakshatra} values={spanText(data.lunar.nakshatras, date)} />
-            <Row label={t.yoga} values={spanText(data.lunar.yogas, date)} />
-            <Row label={t.karana} values={spanText(data.lunar.karanas, date)} />
-            <Row label="Month" values={[data.lunar.month_amanta, ...(data.lunar.month_purnimanta !== data.lunar.month_amanta ? [`${data.lunar.month_purnimanta} (north)`] : [])]} />
+            <SpanRow label={t.tithi} parts={spanParts(data.lunar.tithis, date, true)} />
+            <SpanRow label={t.nakshatra} parts={spanParts(data.lunar.nakshatras, date)} />
+            <SpanRow label={t.yoga} parts={spanParts(data.lunar.yogas, date)} />
+            <SpanRow label={t.karana} parts={spanParts(data.lunar.karanas, date)} />
+            <Row
+              label="Month"
+              values={[
+                data.lunar.month_amanta,
+                ...(data.lunar.month_purnimanta !== data.lunar.month_amanta
+                  ? [`${data.lunar.month_purnimanta} (north)`]
+                  : []),
+              ]}
+            />
           </View>
         </Card>
       ) : null}
@@ -279,7 +307,9 @@ export default function TodayScreen() {
             <Ionicons name={usingLocation ? "navigate" : "location"} size={20} color={colors.saffronDeep} />
             <View style={{ flex: 1 }}>
               <AppText variant="label">
-                {usingLocation ? `Your location${nearest.data ? ` · near ${nearest.data.city.name}` : ""}` : data.place.name}
+                {usingLocation
+                  ? `Your location${nearest.data ? ` · near ${nearest.data.city.name}` : ""}`
+                  : data.place.name}
               </AppText>
               <AppText variant="caption" color={colors.muted}>
                 {usingLocation
@@ -322,15 +352,19 @@ export default function TodayScreen() {
         <SectionTitle title="Coming up" />
         {data.upcoming.length === 0 ? (
           <View style={{ minHeight: 200 }}>
-            <EmptyState icon="calendar" title="Nothing listed" message="No observances for your faiths in this period." />
+            <EmptyState
+              icon="calendar"
+              title="Nothing listed"
+              message="No observances for your faiths in this period."
+            />
           </View>
         ) : (
           data.upcoming.map((o) => <ObservanceRow key={`${o.code}-${o.date}`} item={o} today={todayDate} />)
         )}
         {data.faiths.includes("muslim") ? (
           <AppText variant="caption" color={colors.muted}>
-            Muslim dates are expected from the crescent and depend on local moon sighting; confirm with
-            your local committee.
+            Muslim dates are expected from the crescent and depend on local moon sighting; confirm with your local
+            committee.
           </AppText>
         ) : null}
       </View>
@@ -339,7 +373,13 @@ export default function TodayScreen() {
         <SectionTitle title="What I follow" />
         <View style={styles.faiths}>
           {FAITHS.map((f) => (
-            <Chip key={f.value} label={f.label} icon={f.icon} selected={user.faiths.includes(f.value)} onPress={() => toggleFaith(f.value)} />
+            <Chip
+              key={f.value}
+              label={f.label}
+              icon={f.icon}
+              selected={user.faiths.includes(f.value)}
+              onPress={() => toggleFaith(f.value)}
+            />
           ))}
         </View>
         <AppText variant="caption" color={colors.muted}>
@@ -356,12 +396,26 @@ const styles = StyleSheet.create({
   heroFoot: { marginTop: spacing.md, alignSelf: "flex-start" },
   row: { flexDirection: "row", gap: spacing.md, alignItems: "center" },
   rowLabel: { width: 112 },
+  span: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: spacing.md },
   dayNav: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   navButton: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  prayer: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4, paddingHorizontal: 8, borderRadius: 10 },
+  prayer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+  },
   prayerNext: { backgroundColor: colors.saffronSoft },
   placeCard: { padding: spacing.lg, gap: spacing.md },
   observance: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  dateTile: { width: 52, height: 56, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: colors.saffronSoft },
+  dateTile: {
+    width: 52,
+    height: 56,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.saffronSoft,
+  },
   faiths: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
 });

@@ -1,4 +1,5 @@
 import {
+  spanParts,
   addDays,
   countdownLabel,
   daysBetween,
@@ -12,7 +13,6 @@ import {
 } from "@/lib/dates";
 
 describe("dates", () => {
-
   it("parses API dates as local calendar days, not UTC", () => {
     const date = parseDate("2026-11-08");
     expect([date.getFullYear(), date.getMonth(), date.getDate()]).toEqual([2026, 10, 8]);
@@ -74,5 +74,24 @@ describe("addDays and placeClock", () => {
     expect(placeClock("2026-11-08T11:28:14+05:30", "2026-11-08")).toBe("11:28");
     expect(placeClock("2026-11-09T12:31:58+05:30", "2026-11-08")).toBe("12:31 +1");
     expect(placeClock("2026-11-07T22:00:00+05:30", "2026-11-08")).toBe("22:00 -1");
+  });
+});
+
+describe("the limbs of the day", () => {
+  const spans = [
+    { name: "Pratipada", paksha: "Krishna", end: "2026-11-25T11:20:00Z" },
+    { name: "Dwitiya", paksha: "Krishna", end: "2026-11-26T07:45:00Z" },
+  ];
+
+  it("splits each limb into a name and the time it lasts until", () => {
+    const parts = spanParts(spans, "2026-11-25", true);
+    expect(parts[0]!.name).toBe("Pratipada (Krishna)");
+    expect(parts[0]!.nextDay).toBe(false);
+  });
+
+  it("shows a limb that ends tomorrow as 'next day', not a stray +1", () => {
+    const parts = spanParts(spans, "2026-11-25");
+    expect(parts[1]!.nextDay).toBe(true);
+    expect(parts[1]!.until).not.toContain("+1");
   });
 });

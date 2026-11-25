@@ -15,16 +15,19 @@ type Props = {
   trailing?: ReactNode;
   onPress?: () => void;
   accessibilityLabel?: string;
+  /** How many lines the title may take before it is cut. One keeps lists tidy; longer text (a notice, a
+   * suggested question) must be allowed to wrap, or it is cut off mid-sentence. */
+  titleLines?: number;
 };
 
 /** One consistent row for every list in the app. */
-export function ListRow({ leading, title, subtitle, trailing, onPress, accessibilityLabel }: Props) {
+export function ListRow({ leading, title, subtitle, trailing, onPress, accessibilityLabel, titleLines = 1 }: Props) {
   return (
     <Card onPress={onPress} accessibilityLabel={accessibilityLabel ?? title} style={styles.card}>
       <View style={styles.row}>
         {leading}
         <View style={styles.text}>
-          <AppText variant="heading" numberOfLines={1}>
+          <AppText variant="heading" numberOfLines={titleLines}>
             {title}
           </AppText>
           {subtitle ? (

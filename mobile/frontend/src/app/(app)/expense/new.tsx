@@ -5,7 +5,7 @@ import { Alert, View } from "react-native";
 import { AppText } from "@/components/AppText";
 import { Button } from "@/components/Button";
 import { Chip } from "@/components/Chip";
-import { DateField, Field, FieldGroup } from "@/components/Field";
+import { AmountField, DateField, Field, FieldGroup } from "@/components/Field";
 import { Screen } from "@/components/Screen";
 import { SegmentedControl } from "@/components/SegmentedControl";
 import {
@@ -136,19 +136,13 @@ export default function NewExpenseScreen() {
           ) : null}
         </FieldGroup>
       ) : null}
+      <AmountField currency={currency} value={amount} onChangeText={setAmount} />
       <Field
         label="What was it for?"
         value={description}
         onChangeText={setDescription}
         placeholder="Sweets, decorations, cab…"
         maxLength={120}
-      />
-      <Field
-        label={`Amount (${currency})`}
-        value={amount}
-        onChangeText={setAmount}
-        placeholder="0.00"
-        keyboardType="decimal-pad"
       />
 
       <FieldGroup label="Category">

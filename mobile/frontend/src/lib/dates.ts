@@ -79,3 +79,16 @@ export function placeClock(iso: string, day: string): string {
   const offset = daysBetween(day, iso.slice(0, 10));
   return offset === 0 ? time : `${time} ${offset > 0 ? "+" : ""}${offset}`;
 }
+
+/** One limb of the day, as a name and the time it lasts until. "13:15 +1" reads as "13:15 next day". */
+export function spanParts(spans: { name: string; paksha?: string | null; end: string }[], day: string, paksha = false) {
+  return spans.map((s) => {
+    const end = placeClock(s.end, day);
+    const nextDay = end.endsWith(" +1");
+    return {
+      name: `${s.name}${paksha && s.paksha ? ` (${s.paksha})` : ""}`,
+      until: nextDay ? end.slice(0, -3) : end,
+      nextDay,
+    };
+  });
+}

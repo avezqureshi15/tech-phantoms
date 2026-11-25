@@ -37,6 +37,41 @@ export function Field({ label, error, multiline, ...input }: FieldProps) {
   );
 }
 
+const SYMBOLS: Record<string, string> = { INR: "₹", USD: "$", EUR: "€", GBP: "£", AED: "AED" };
+
+/** The amount of money, the first thing anyone wants to type: large, with the currency beside it. */
+export function AmountField({
+  currency,
+  value,
+  onChangeText,
+}: {
+  currency: string;
+  value: string;
+  onChangeText: (value: string) => void;
+}) {
+  return (
+    <View style={styles.group}>
+      <AppText variant="label" color={colors.muted}>
+        {`Amount (${currency})`}
+      </AppText>
+      <View style={styles.amountBox}>
+        <AppText style={styles.amountSymbol} color={colors.muted}>
+          {SYMBOLS[currency] ?? currency}
+        </AppText>
+        <TextInput
+          value={value}
+          onChangeText={onChangeText}
+          placeholder="0.00"
+          placeholderTextColor="#B5A79C"
+          keyboardType="decimal-pad"
+          accessibilityLabel={`Amount (${currency})`}
+          style={styles.amountInput}
+        />
+      </View>
+    </View>
+  );
+}
+
 export function FieldGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <View style={styles.group}>
@@ -157,6 +192,26 @@ export function TimeField({ label, value, onChange }: TimeFieldProps) {
 }
 
 const styles = StyleSheet.create({
+  amountBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    minHeight: 72,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.card,
+  },
+  amountSymbol: { fontSize: 30, lineHeight: 38 },
+  amountInput: {
+    flex: 1,
+    fontSize: 36,
+    lineHeight: 44,
+    fontFamily: fonts.semibold,
+    color: colors.ink,
+    paddingVertical: 8,
+  },
   group: { gap: 6 },
   input: {
     backgroundColor: colors.card,

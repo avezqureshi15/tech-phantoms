@@ -205,6 +205,7 @@ export default function HomeScreen() {
           <ListRow
             leading={<IconTile icon="megaphone" tint={colors.gold} />}
             title={features.announcement}
+            titleLines={4}
             accessibilityLabel={`Notice: ${features.announcement}`}
           />
         </FadeInUp>

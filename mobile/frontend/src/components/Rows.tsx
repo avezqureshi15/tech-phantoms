@@ -5,7 +5,7 @@ import { AppText } from "@/components/AppText";
 import { Card } from "@/components/Card";
 import { Chip } from "@/components/Chip";
 import { useToday } from "@/lib/clock-context";
-import { countdownLabel, daysUntil, formatRange } from "@/lib/dates";
+import { daysUntil, formatRange } from "@/lib/dates";
 import { IconTile } from "@/components/IconTile";
 import { categoryMeta, festivalMeta, titleCase } from "@/lib/meta";
 import type { Festival, Tradition } from "@/lib/schemas";
@@ -74,6 +74,12 @@ export function PageHeader({
   );
 }
 
+/** Only a festival that is over needs a words label: for the others the badge on the right already
+ * says how many days are left, and saying it twice is noise. */
+export function pastLabel(end: string, today: string): string | null {
+  return daysUntil(end, today) < 0 ? "Celebrated" : null;
+}
+
 export function FestivalRow({ festival, onPress }: { festival: Festival; onPress: () => void }) {
   const meta = festivalMeta(festival.type);
   const today = useToday();
@@ -88,11 +94,17 @@ export function FestivalRow({ festival, onPress }: { festival: Festival; onPress
           <AppText variant="caption" color={colors.muted}>
             {formatRange(festival.start_date, festival.end_date)}
           </AppText>
-          <AppText variant="caption" color={colors.saffronDeep}>
-            {countdownLabel(festival.start_date, festival.end_date, today)}
-          </AppText>
+          {pastLabel(festival.end_date, today) ? (
+            <AppText variant="caption" color={colors.muted}>
+              {pastLabel(festival.end_date, today)}
+            </AppText>
+          ) : null}
         </View>
-        {festival.status === "cancelled" ? <Chip label="Cancelled" tone="warning" /> : <DaysBadge festival={festival} />}
+        {festival.status === "cancelled" ? (
+          <Chip label="Cancelled" tone="warning" />
+        ) : (
+          <DaysBadge festival={festival} />
+        )}
       </View>
     </Card>
   );
@@ -101,7 +113,8 @@ export function FestivalRow({ festival, onPress }: { festival: Festival; onPress
 function DaysBadge({ festival }: { festival: Festival }) {
   const today = useToday();
   const days = daysUntil(festival.start_date, today);
-  if (daysUntil(festival.end_date, today) < 0) return <Ionicons name="checkmark-circle" size={22} color={colors.success} />;
+  if (daysUntil(festival.end_date, today) < 0)
+    return <Ionicons name="checkmark-circle" size={22} color={colors.success} />;
   if (days <= 0) return <Chip label="Now" tone="success" />;
   return (
     <View style={{ alignItems: "center", minWidth: 40 }}>
@@ -115,12 +128,22 @@ function DaysBadge({ festival }: { festival: Festival }) {
   );
 }
 
+/** What is worth saying about a tradition beyond its row: that it is paused, or that it is not the
+ * family's own. Every tradition being "Family tradition" tells nobody anything. */
+export function scopeNote(tradition: Tradition): string | null {
+  const notes = [
+    tradition.scope === "FAMILY" ? null : `${titleCase(tradition.scope)} tradition`,
+    tradition.active ? null : "Paused",
+  ].filter(Boolean);
+  return notes.length ? notes.join(" · ") : null;
+}
+
 export function TraditionRow({ tradition, onPress }: { tradition: Tradition; onPress: () => void }) {
   const category = categoryMeta(tradition.category);
   return (
     <Card onPress={onPress} accessibilityLabel={tradition.name}>
       <View style={styles.row}>
-        <IconTile icon={category.icon} tint={colors.maroon} size={52} />
+        <IconTile icon={category.icon} gradient={festivalMeta(tradition.festival_type).gradient} size={52} />
         <View style={{ flex: 1, gap: 2 }}>
           <AppText variant="heading" numberOfLines={1}>
             {tradition.name}
@@ -129,9 +152,11 @@ export function TraditionRow({ tradition, onPress }: { tradition: Tradition; onP
             {festivalMeta(tradition.festival_type).label} · {category.label}
             {tradition.started_year ? ` · since ${tradition.started_year}` : ""}
           </AppText>
-          <AppText variant="caption" color={colors.saffronDeep}>
-            {titleCase(tradition.scope)} tradition{tradition.active ? "" : " · paused"}
-          </AppText>
+          {scopeNote(tradition) ? (
+            <AppText variant="caption" color={colors.saffronDeep}>
+              {scopeNote(tradition)}
+            </AppText>
+          ) : null}
         </View>
         <Ionicons name="chevron-forward" size={18} color={colors.muted} />
       </View>
