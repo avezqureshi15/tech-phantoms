@@ -117,6 +117,33 @@ describe("the voice screen", () => {
     expect(screen.getByLabelText("Step 2 of 3: Your turn")).toBeTruthy();
   });
 
+  it.each([
+    ["speaking", "Utsav is speaking. I will listen as soon as I finish"],
+    ["listening", "Your turn. Speak now. I will stop listening when you pause"],
+    ["thinking", "One moment…"],
+  ])("does not ask for, or act on, a tap on the circle while %s", async (phase, label) => {
+    mockSession.phase = phase;
+    await show();
+
+    await fireEvent.press(screen.getByRole("button", { name: label }));
+
+    expect(screen.queryByText(/\btap\b/i)).toBeNull(); // nothing on screen asks the person to tap
+    expect(mockSession.tap).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["idle", "Tap to start talking"],
+    ["paused", "Tap when you are ready"],
+    ["error", "Tap to try again"],
+  ])("lets the circle start things again when %s", async (phase, label) => {
+    mockSession.phase = phase;
+    await show();
+
+    await fireEvent.press(screen.getByRole("button", { name: label }));
+
+    expect(mockSession.tap).toHaveBeenCalled();
+  });
+
   it("explains in plain words what to expect before the first tap", async () => {
     await show();
     expect(screen.getByText(/You do not need to press anything/)).toBeTruthy();

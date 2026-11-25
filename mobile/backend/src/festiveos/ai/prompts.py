@@ -9,7 +9,7 @@ so a deploy that edits one is visible in review and in the ``prompt_version`` lo
 from functools import lru_cache
 from importlib import resources
 
-PROMPT_VERSION = "v5"
+PROMPT_VERSION = "v6"
 
 
 @lru_cache

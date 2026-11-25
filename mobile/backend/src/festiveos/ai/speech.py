@@ -72,6 +72,30 @@ def speakable(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+_INDIC = "\u0900-\u0d7f"
+_ENGLISH_ASIDE = re.compile(rf"\s*[(\[][^()\[\]{_INDIC}]*[A-Za-z][^()\[\]{_INDIC}]*[)\]]")
+_PIECES = re.compile(r"[^।.!?\n]+[।.!?]*\s*|\n")
+_INDIC_RUN = re.compile(rf"[{_INDIC}]")
+_LATIN_WORD = re.compile(r"[A-Za-z]{2,}")
+
+
+def native_only(text: str) -> str:
+    """Text that is written in an Indian language is spoken in it alone. An English rendering placed
+    beside it (in brackets, or as its own sentence) is dropped, so the voice never reads a line in
+    Hindi and then the same line again in English. Plain English text is left exactly as it is, and
+    so are English words inside an Indian-language sentence (a name, a title)."""
+    if len(_INDIC_RUN.findall(text)) < 8:
+        return text  # no real line in an Indian language: nothing to protect
+    kept = _ENGLISH_ASIDE.sub("", text)
+    pieces = [
+        piece
+        for piece in _PIECES.findall(kept)
+        if _INDIC_RUN.search(piece) or not _LATIN_WORD.search(piece)
+    ]
+    result = "".join(pieces).strip()
+    return result or text
+
+
 def first_chunk(text: str, limit: int = MAX_SPOKEN_CHARS) -> str:
     """At most ``limit`` characters, ending at a sentence boundary where there is one."""
     if len(text) <= limit:

@@ -24,7 +24,7 @@ import { MIC_PERMISSION_MESSAGE, useVoiceSession, type SessionMode } from "@/fea
 import { usePattern } from "@/lib/appearance";
 import { useLayout } from "@/lib/layout";
 import { colors, layout, spacing } from "@/lib/theme";
-import { captionSize, guidance, type Phase } from "@/lib/voice-session";
+import { captionSize, circleIsTappable, guidance, type Phase } from "@/lib/voice-session";
 
 type ScrollHandle = React.ComponentProps<typeof ScrollView>["ref"] extends React.Ref<infer T> | undefined ? T : never;
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
@@ -262,7 +262,7 @@ export default function VoiceScreen() {
                 accessibilityLabel={label || "Start"}
                 accessibilityState={{ busy: session.phase === "thinking" }}
                 onPress={() => void session.tap()}
-                disabled={session.phase === "thinking" || session.phase === "ended"}
+                disabled={!circleIsTappable(session.phase)}
                 style={[styles.orb, { width: orb, height: orb, borderRadius: orb / 2, backgroundColor: look.color }]}
               >
                 {session.phase === "thinking" ? (

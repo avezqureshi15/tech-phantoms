@@ -24,12 +24,33 @@ import {
   SESSION_LIMIT_MESSAGE,
   type Budget,
 } from "@/lib/voice-guard";
-import { meterLevel, musicLink, replyText, vadStart, vadStep, type Phase, type Vad } from "@/lib/voice-session";
+import {
+  meterLevel,
+  musicLink,
+  RECITE_BONUS_MS,
+  replyText,
+  vadStart,
+  vadStep,
+  type Phase,
+  type Vad,
+} from "@/lib/voice-session";
 
 export type SessionMode = "elder" | "recite";
 
 // Said aloud by the phone itself before anyone has spoken, so the first words the person says (in any
 // language) decide the language of the whole conversation. No model is asked for this.
+// Speech, not music: one channel at 16 kHz is all a voice needs, so the upload is small and the answer
+// is quick. On Android the "voice recognition" source asks the phone for its own noise suppression and
+// echo cancellation. (iOS does not expose that setting here, so the app measures the room instead.)
+export const VOICE_RECORDING = {
+  ...RecordingPresets.HIGH_QUALITY,
+  sampleRate: 16_000,
+  numberOfChannels: 1,
+  bitRate: 48_000,
+  isMeteringEnabled: true,
+  android: { ...RecordingPresets.HIGH_QUALITY.android, audioSource: "voice_recognition" as const },
+};
+
 export const GREETING: Record<SessionMode, string> = {
   elder: "Namaste ji. Tell me, how can I help you today?",
   recite: "Namaste ji. Which prayer would you like to practise? Please say its name.",
@@ -48,7 +69,7 @@ export function useVoiceSession(
   mode: SessionMode,
   options: { autoStart?: boolean } = {},
 ) {
-  const recorder = useAudioRecorder({ ...RecordingPresets.HIGH_QUALITY, isMeteringEnabled: true });
+  const recorder = useAudioRecorder(VOICE_RECORDING);
   const recorderState = useAudioRecorderState(recorder, 150);
 
   const [phase, setPhaseState] = useState<Phase>("idle");
@@ -90,7 +111,7 @@ export function useVoiceSession(
 
   // ---- speaking ---------------------------------------------------------------------------------------
   const playFile = useCallback(async (file: File) => {
-    await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+    await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, interruptionMode: "doNotMix" });
     await new Promise<void>((resolve) => {
       const audio = createAudioPlayer({ uri: file.uri });
       player.current = audio;
@@ -153,7 +174,7 @@ export function useVoiceSession(
         setPhase("error");
         return;
       }
-      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true, interruptionMode: "doNotMix" });
       await recorder.prepareToRecordAsync();
       recorder.record();
       vad.current = vadStart(Date.now());
@@ -270,11 +291,11 @@ export function useVoiceSession(
   // The microphone level, a few times a second, decides when they have finished speaking.
   useEffect(() => {
     if (phaseRef.current !== "listening" || !vad.current) return;
-    const step = vadStep(vad.current, recorderState.metering, Date.now());
+    const step = vadStep(vad.current, recorderState.metering, Date.now(), mode === "recite" ? RECITE_BONUS_MS : 0);
     vad.current = step.vad;
     if (step.action === "finish") void finishListening();
     else if (step.action === "giveup") void giveUp();
-  }, [recorderState.metering, recorderState.durationMillis, finishListening, giveUp]);
+  }, [recorderState.metering, recorderState.durationMillis, finishListening, giveUp, mode]);
 
   // ---- what the big buttons do ----------------------------------------------------------------------------
   /** The phone greets, then listens: the person never has to tap before speaking. */

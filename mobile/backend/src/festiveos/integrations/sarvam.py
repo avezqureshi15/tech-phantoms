@@ -28,6 +28,52 @@ TRANSLATE_MODEL = "sarvam-translate:v1"
 RETRYABLE = frozenset({408, 409, 429, 500, 502, 503, 504})
 MAX_RETRIES = 2
 MAX_RETRY_WAIT = 8.0
+# The voices bulbul:v3 offers. A voice outside this list is never sent, so a bad setting cannot
+# break speech: it falls back to the default.
+VOICES = frozenset(
+    {
+        "aditya",
+        "ritu",
+        "ashutosh",
+        "priya",
+        "neha",
+        "rahul",
+        "pooja",
+        "rohan",
+        "simran",
+        "kavya",
+        "amit",
+        "dev",
+        "ishita",
+        "shreya",
+        "ratan",
+        "varun",
+        "manan",
+        "sumit",
+        "roopa",
+        "kabir",
+        "aayan",
+        "shubh",
+        "advait",
+        "anand",
+        "tanya",
+        "tarun",
+        "sunny",
+        "mani",
+        "gokul",
+        "vijay",
+        "shruti",
+        "suhani",
+        "mohit",
+        "kavitha",
+        "rehan",
+        "soham",
+        "rupali",
+    }
+)
+DEFAULT_VOICE = "ritu"
+SPEECH_RATE = 24_000  # Hz: clear and natural without the weight of the highest rates
+SPEECH_WARMTH = 0.7  # the service's "temperature": a little more variation reads less robotic
 # Speech is part of a live conversation: a person is waiting, and the app gives up on a reply after
 # 45 seconds. So one short attempt and one retry (about 25 s at worst), never minutes of silence.
 SPEECH_TIMEOUT = 12.0
@@ -115,8 +161,11 @@ class SarvamClient:
             language=language if isinstance(language, str) else None,
         )
 
-    def speak(self, text: str, *, language: str, pace: float = 1.0) -> bytes:
+    def speak(
+        self, text: str, *, language: str, pace: float = 1.0, voice: str | None = None
+    ) -> bytes:
         """Natural speech (WAV) for ``text`` in ``language``. ``pace`` below 1 speaks slower."""
+        speaker = voice if voice in VOICES else DEFAULT_VOICE
         body = self._send(
             "POST",
             "/text-to-speech",
@@ -124,7 +173,10 @@ class SarvamClient:
                 "text": text,
                 "language_code": language,
                 "model": "bulbul:v3",
+                "speaker": speaker,
                 "pace": pace,
+                "temperature": SPEECH_WARMTH,
+                "speech_sample_rate": SPEECH_RATE,
             },
             timeout=SPEECH_TIMEOUT,
             retries=SPEECH_RETRIES,

@@ -33,10 +33,11 @@ from festiveos.ai.speech import (
     SPEECH_LANGUAGES,
     detect_language,
     first_chunk,
+    native_only,
     speakable,
 )
 from festiveos.ai.tools import PendingCard, ToolContext, ToolResult, execute_action
-from festiveos.config import Settings
+from festiveos.config import Settings, sarvam_voice
 from festiveos.core.errors import (
     ConflictError,
     InvalidInputError,
@@ -306,11 +307,12 @@ class AIService:
         self._access.member(household_id, actor.id)
         if reader is None:
             raise ServiceUnavailableError("Speaking is not available right now.")
-        words = first_chunk(speakable(data.text))
+        words = first_chunk(native_only(speakable(data.text)))
         if not words:
             raise InvalidInputError("There is nothing to say.")
         language = data.language if data.language in SPEECH_LANGUAGES else detect_language(words)
-        return reader.speak(words, language=language, pace=data.pace)
+        voice = self._features.tts_voice() or sarvam_voice()
+        return reader.speak(words, language=language, pace=data.pace, voice=voice)
 
     # ------------------------------------------------------------------------------- reads
 

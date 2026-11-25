@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 
 from festiveos.ai.agents import AGENTS
 from festiveos.ai.prompts import playbook
-from festiveos.ai.speech import detect_language, first_chunk, speakable
+from festiveos.ai.speech import detect_language, first_chunk, native_only, speakable
 from festiveos.integrations.sarvam import get_sarvam
 from festiveos.main import app
 from tests.ai.conftest import FakeLLM, text, use
@@ -70,8 +70,8 @@ class FakeVoice:
     def __init__(self) -> None:
         self.calls = []
 
-    def speak(self, text, *, language, pace=1.0):
-        self.calls.append({"text": text, "language": language, "pace": pace})
+    def speak(self, text, *, language, pace=1.0, voice=None):
+        self.calls.append({"text": text, "language": language, "pace": pace, "voice": voice})
         return WAV
 
 
@@ -87,6 +87,27 @@ def speak(client, user, household_id, **body):
     return client.post(f"{API}/households/{household_id}/ai/speak", json=body, headers=auth(user))
 
 
+def test_the_voice_comes_from_the_environment_and_a_flag_can_change_it(
+    client: TestClient, make_user, voice: FakeVoice, monkeypatch
+) -> None:
+    from festiveos.integrations.flags import FeatureFlags, get_feature_flags
+    from tests.integrations.test_flags import FakeClient, FakeFlag
+
+    dad, _, household_id = setup_household(client, make_user)
+    monkeypatch.setenv("SARVAM_VOICE", "Priya")
+
+    speak(client, dad, household_id, text="नमस्ते")
+    assert voice.calls[-1]["voice"] == "priya"  # tidied: lower case
+
+    flags = FeatureFlags(FakeClient({"tts_voice": FakeFlag(value="kavya")}))
+    app.dependency_overrides[get_feature_flags] = lambda: flags
+    try:
+        speak(client, dad, household_id, text="नमस्ते")
+    finally:
+        app.dependency_overrides.pop(get_feature_flags, None)
+    assert voice.calls[-1]["voice"] == "kavya"  # the flag wins, with no release
+
+
 def test_text_is_spoken_in_the_language_it_is_written_in(
     client: TestClient, make_user, voice: FakeVoice
 ) -> None:
@@ -97,7 +118,9 @@ def test_text_is_spoken_in_the_language_it_is_written_in(
     assert response.status_code == 200
     assert response.headers["content-type"] == "audio/wav"
     assert response.content == WAV
-    assert voice.calls == [{"text": "ನಮಸ್ಕಾರ ಇವತ್ತು ಏನು ಮಾಡೋಣ?", "language": "kn-IN", "pace": 1.0}]
+    assert voice.calls == [
+        {"text": "ನಮಸ್ಕಾರ ಇವತ್ತು ಏನು ಮಾಡೋಣ?", "language": "kn-IN", "pace": 1.0, "voice": None}
+    ]
 
 
 def test_a_slower_pace_is_passed_on_and_an_unknown_language_is_ignored(
@@ -107,7 +130,7 @@ def test_a_slower_pace_is_passed_on_and_an_unknown_language_is_ignored(
 
     speak(client, dad, household_id, text="Namaste", pace=0.8, language="xx-YY")
 
-    assert voice.calls == [{"text": "Namaste", "language": "en-IN", "pace": 0.8}]
+    assert voice.calls == [{"text": "Namaste", "language": "en-IN", "pace": 0.8, "voice": None}]
 
 
 @pytest.mark.parametrize(
@@ -213,3 +236,77 @@ def test_an_unknown_mode_is_refused(client: TestClient, make_user, llm: FakeLLM)
     dad, _, household_id = setup_household(client, make_user)
 
     assert begin(client, dad, household_id, mode="chaos").status_code == 422
+
+
+# --------------------------------------- a line in an Indian language is never followed by English
+
+
+@pytest.mark.parametrize(
+    ("said", "spoken"),
+    [
+        # An English rendering in brackets is dropped.
+        ("श्रीगुरु चरन सरोज रज (Having cleaned the mirror of my mind)", "श्रीगुरु चरन सरोज रज"),
+        ("जय हनुमान ज्ञान गुन सागर [Victory to Hanuman, ocean of wisdom]", "जय हनुमान ज्ञान गुन सागर"),
+        # An English sentence of its own, after the line, is dropped.
+        (
+            "जय हनुमान ज्ञान गुन सागर। Victory to Hanuman, the ocean of wisdom.",
+            "जय हनुमान ज्ञान गुन सागर।",
+        ),
+        ("ನಮಸ್ಕಾರ ಇವತ್ತು ಏನು ಮಾಡೋಣ?\nHello, what shall we do today?", "ನಮಸ್ಕಾರ ಇವತ್ತು ಏನು ಮಾಡೋಣ?"),
+        # An English word inside an Indian-language sentence stays (a name or a title).
+        ("आज हम Diwali की पूजा करेंगे।", "आज हम Diwali की पूजा करेंगे।"),
+    ],
+)
+def test_the_english_version_beside_an_indian_language_line_is_not_read(
+    said: str, spoken: str
+) -> None:
+    assert native_only(said) == spoken
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Namaste ji. Tell me, how can I help you today?",  # plain English is left alone
+        "Hanuman Chalisa (Forty verses to Hanuman)",
+        "OK.",
+        "",
+        "जी।",  # too short to be a line worth protecting
+    ],
+)
+def test_plain_english_and_very_short_text_are_left_exactly_as_they_are(text: str) -> None:
+    assert native_only(text) == text
+
+
+def test_something_is_always_spoken_even_if_filtering_would_leave_nothing() -> None:
+    # Every sentence here is English except a tiny Indic fragment: the filter must not return "".
+    assert native_only("Hello there friend (नमस्ते जी आप कैसे हैं)").strip() != ""
+    only_aside = "(Having cleaned the mirror) जय हनुमान ज्ञान गुन सागर"
+    assert native_only(only_aside) == "जय हनुमान ज्ञान गुन सागर"
+
+
+def test_the_speak_route_applies_it(client: TestClient, make_user, voice: FakeVoice) -> None:
+    dad, _, household_id = setup_household(client, make_user)
+
+    speak(
+        client,
+        dad,
+        household_id,
+        text="जय हनुमान ज्ञान गुन सागर। Victory to Hanuman, the ocean of wisdom.",
+    )
+
+    assert voice.calls[-1]["text"] == "जय हनुमान ज्ञान गुन सागर।"
+
+
+# ------------------------------------------------ recite mode: practice only, no meanings
+
+
+def test_recite_mode_forbids_meanings_and_english_in_its_own_words() -> None:
+    from festiveos.ai.prompts import playbook
+
+    text = playbook("recite")
+    assert "Never give a meaning, translation, explanation" in text
+    assert "Never add an English version" in text
+    assert "offer the meaning" not in " ".join(text.split())  # the old offer of a meaning is gone
+    assert "offer its meaning" not in text
+    assert "Never say two lines in one turn" in text
+    assert "Never repeat what you said in another language" in playbook("elder")

@@ -228,3 +228,32 @@ def test_reading_documents_keeps_its_longer_patience() -> None:
         sarvam.translate("Hello", source="en-IN", target="hi-IN")
 
     assert len(session.calls) == 3
+
+
+def test_speech_uses_a_chosen_voice_and_warm_natural_settings() -> None:
+    import base64
+
+    audio = base64.b64encode(b"RIFFwav").decode()
+    sarvam, session, _ = client(Reply(200, {"audios": [audio]}))
+
+    sarvam.speak("नमस्ते", language="hi-IN", voice="kavya", pace=0.9)
+
+    sent = session.calls[0]["json"]
+    assert sent["speaker"] == "kavya"
+    assert sent["pace"] == 0.9
+    assert 0.5 <= sent["temperature"] <= 1.0
+    assert sent["speech_sample_rate"] == 24_000
+
+
+@pytest.mark.parametrize("bad", [None, "", "nobody", "ritu; drop table", "KAVYA"])
+def test_a_voice_that_is_not_on_the_list_falls_back_to_the_default(bad) -> None:
+    import base64
+
+    from festiveos.integrations.sarvam import DEFAULT_VOICE
+
+    audio = base64.b64encode(b"RIFFwav").decode()
+    sarvam, session, _ = client(Reply(200, {"audios": [audio]}))
+
+    sarvam.speak("hi", language="en-IN", voice=bad)
+
+    assert session.calls[0]["json"]["speaker"] == DEFAULT_VOICE

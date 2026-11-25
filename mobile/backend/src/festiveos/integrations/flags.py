@@ -56,7 +56,7 @@ def feature_off(name: str) -> ServiceUnavailableError:
 
 
 # Remote settings (a flag's value, not just on/off). None means "use the server's own setting".
-VALUE_NAMES = ("ai_model", "ai_effort", "announcement")
+VALUE_NAMES = ("ai_model", "ai_effort", "announcement", "tts_voice")
 EFFORTS = frozenset({"low", "medium", "high", "xhigh", "max"})
 MAX_VALUE_CHARS = 280
 REFRESH_SECONDS = 60
@@ -156,6 +156,12 @@ class FeatureFlags:
     def ai_model(self) -> str | None:
         value = self.environment().value("ai_model")
         return value if value and len(value) <= 60 and " " not in value else None
+
+    def tts_voice(self) -> str | None:
+        """The speaking voice, if one is set in Flagsmith. Checked against the real list by the
+        speech client, so a typo here changes nothing."""
+        value = self.environment().value("tts_voice")
+        return value.lower() if value and value.isalpha() and len(value) <= 20 else None
 
     def ai_effort(self) -> str | None:
         value = self.environment().value("ai_effort")

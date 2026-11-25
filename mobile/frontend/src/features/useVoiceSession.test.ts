@@ -6,7 +6,7 @@ import { GREETING, useVoiceSession } from "@/features/useVoiceSession";
 import { ApiError, download, upload } from "@/lib/api";
 import { streamTurn } from "@/lib/utsav/client";
 import { MAX_SESSION_MS } from "@/lib/voice-guard";
-import { SILENCE_MS, SPEECH_DB } from "@/lib/voice-session";
+import { SHORT_BONUS_MS, SILENCE_MS, SPEECH_DB } from "@/lib/voice-session";
 
 const mockRecorder = { prepareToRecordAsync: jest.fn(), record: jest.fn(), stop: jest.fn(), uri: "file:///c/clip.m4a" };
 const mockMeter = { metering: -60 as number | undefined, durationMillis: 0 };
@@ -112,6 +112,7 @@ async function say(hook: Awaited<ReturnType<typeof started>>, words: string, lan
 beforeEach(() => {
   jest.clearAllMocks();
   mockUpload.mockReset(); // an answer set in one test must not leak into the next
+  mockStream.mockReset(); // nor a reply that was queued but never used
   jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate", "queueMicrotask"] });
   jest.setSystemTime(new Date("2026-11-25T10:00:00Z"));
   permission.mockResolvedValue({ granted: true } as never);
@@ -221,7 +222,7 @@ describe("a voice session", () => {
     });
     mockMeter.metering = -60;
     await act(async () => {
-      jest.advanceTimersByTime(SILENCE_MS + 200);
+      jest.advanceTimersByTime(SILENCE_MS + SHORT_BONUS_MS + 200);
       mockMeter.durationMillis += 2500;
       await hook.rerender({});
     });

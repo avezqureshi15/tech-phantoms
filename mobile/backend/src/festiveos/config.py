@@ -124,6 +124,11 @@ def flagsmith_server_key() -> str:
     return (os.getenv("FLAGSMITH_SERVER_KEY") or "").strip()
 
 
+def sarvam_voice() -> str | None:
+    """The speaking voice from ``SARVAM_VOICE`` (blank means the built-in default)."""
+    return (os.getenv("SARVAM_VOICE") or "").strip().lower() or None
+
+
 def sarvam_api_key() -> str:
     """The Sarvam key (translation and document reading), or an empty string."""
     return (os.getenv("SARVAM_API_KEY") or "").strip()
