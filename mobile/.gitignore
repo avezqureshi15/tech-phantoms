@@ -1,0 +1,49 @@
+# --- Secrets / local config (keep .env.example tracked) ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# --- Local databases ---
+*.db
+*.sqlite
+*.sqlite3
+
+# --- Node / frontend (for when one is added) ---
+node_modules/
+.next/
+.vite/
+coverage/
+npm-debug.log*
+pnpm-debug.log*
+
+# --- Logs ---
+*.log
+logs/
+
+# --- OS / editors ---
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Local dev Postgres cluster and logs
+backend/.devdb/
+
+# Safety backups made before large refactors
+.backups/
