@@ -298,7 +298,7 @@ FestiveOS:
 - Google sign-in with short-lived JWT sessions and refresh tokens; the backend refuses to start without a strong `JWT_SECRET`.
 - TLS is enforced for any non-local database connection.
 - Per-user and global rate limits, backed by Redis in production, plus request size limits.
-- Production deployment design: only the load balancer is public, the API, database and Redis live in private subnets, encryption at rest and in transit throughout, and secrets delivered from AWS Secrets Manager.
+- Production deployment: only the load balancer is public, the API, database and Redis live in private subnets, encryption at rest and in transit throughout, and secrets delivered from AWS Secrets Manager.
 
 Diya:
 
