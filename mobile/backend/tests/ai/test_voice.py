@@ -142,6 +142,8 @@ def test_the_voice_agents_can_only_talk_look_things_up_and_play_music() -> None:
         "find_events",
         "add_to_calendar",  # a card the person's own phone confirms; nothing is added until tapped
         "check_recitation",
+        "get_panchang",  # read-only: the day's tithi and timings
+        "list_traditions",  # read-only
     }
     for name in (ELDER, RECITE):
         tools = AGENTS[name].tools

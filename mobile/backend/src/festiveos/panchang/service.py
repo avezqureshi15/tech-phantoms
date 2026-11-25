@@ -123,6 +123,12 @@ class PanchangService:
         known = tuple(UserFaith(v) for v in faiths if v in UserFaith._value2member_map_)
         return _today_page(known, place, day, scheme, region)
 
+    def today_page(
+        self, faiths: list[str], place: Place, day: date, region: str | None
+    ) -> TodayRead:
+        """The same page with the usual month scheme, for callers that do not choose one."""
+        return self.today(faiths, place, day, Scheme.AMANTA, region)
+
     def cities(self) -> list[PlaceRead]:
         return [_place_read(p) for p in locations.CITIES.values()]
 

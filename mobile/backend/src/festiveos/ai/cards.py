@@ -13,7 +13,7 @@ import uuid
 from datetime import date
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from festiveos.core.errors import InvalidInputError
 
@@ -135,8 +135,40 @@ class CalendarCard(BaseModel):
     notes: str | None = Field(default=None, max_length=300)
 
 
+# The screens Utsav may point a person to. A closed list: the app maps each name to a real screen,
+# and nothing the model writes can open anything else.
+SCREENS = (
+    "home",
+    "festivals",
+    "expenses",
+    "add_expense",
+    "today",
+    "traditions",
+    "family",
+    "profile",
+    "appearance",
+    "support",
+)
+
+
+class NavigationCard(BaseModel):
+    """A button that opens a screen of the app. Nothing happens until the person taps it."""
+
+    kind: Literal["navigate"] = "navigate"
+    id: uuid.UUID
+    title: str = Field(max_length=60)
+    screen: str
+
+    @field_validator("screen")
+    @classmethod
+    def known_screen(cls, value: str) -> str:
+        if value not in SCREENS:
+            raise ValueError(f"unknown screen: {value}")
+        return value
+
+
 Card = Annotated[
-    QuestionCard | ConfirmCard | HostingPlanCard | LinksCard | CalendarCard,
+    QuestionCard | ConfirmCard | HostingPlanCard | LinksCard | CalendarCard | NavigationCard,
     Field(discriminator="kind"),
 ]
 

@@ -20,6 +20,7 @@ from festiveos.ai import events, jugaad, music, recitation
 from festiveos.ai.actions import ACTIONS, ActionServices
 from festiveos.ai.agents import AGENTS, Agent
 from festiveos.ai.cards import (
+    SCREENS,
     CalendarCard,
     Card,
     ConfirmCard,
@@ -27,6 +28,7 @@ from festiveos.ai.cards import (
     HostingPlanCard,
     LinkItem,
     LinksCard,
+    NavigationCard,
     PlanSection,
     QuestionCard,
     QuestionContent,
@@ -39,9 +41,13 @@ from festiveos.core.errors import (
     NotFoundError,
     ServiceUnavailableError,
 )
+from festiveos.core.faiths import Faith
+from festiveos.expenses.service import ExpenseService
 from festiveos.festivals.service import FestivalService
 from festiveos.households.service import HouseholdService
 from festiveos.inventory.service import InventoryService
+from festiveos.panchang.service import PanchangService
+from festiveos.traditions.service import TraditionService
 from festiveos.users.models import User
 
 DOMAIN_ERRORS = (NotFoundError, ConflictError, ForbiddenError, InvalidInputError)
@@ -50,6 +56,30 @@ RAW_ITEMS = ("Rice (raw)", "Atta")
 
 class Strict(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+
+class ExpensesInput(Strict):
+    festival_name: str | None = Field(
+        default=None, max_length=80, description="Only this festival's spending, if they asked"
+    )
+
+
+class PanchangInput(Strict):
+    on: date | None = Field(default=None, description="Defaults to today")
+    city: str | None = Field(
+        default=None, max_length=32, description="A city key like bengaluru; defaults to theirs"
+    )
+    faith: Faith | None = Field(
+        default=None, description="Only this faith's calendar, if they asked about one"
+    )
+
+
+class TraditionsInput(Strict):
+    festival_type: str | None = Field(default=None, max_length=32, description="For example DIWALI")
+
+
+class NavigateInput(Strict):
+    screen: str = Field(description="One of: " + ", ".join(SCREENS))
 
 
 class HostingInput(Strict):
@@ -120,6 +150,9 @@ class ToolContext:
         self.households = HouseholdService(self.session)
         self.festivals = FestivalService(self.session)
         self.inventory = InventoryService(self.session)
+        self.expenses = ExpenseService(self.session)
+        self.traditions = TraditionService(self.session)
+        self.panchang = PanchangService()
 
 
 def _schema(model: type[BaseModel]) -> dict[str, Any]:
@@ -263,6 +296,32 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         _schema(QuestionContent),
     ),
     _tool(
+        "get_expenses",
+        "The group's spending, worked out for you: total, spending by category and by payer, who "
+        "should pay whom to settle up, and the latest expenses. Use it for any question about "
+        "money spent, owed or settled. Never add numbers up yourself.",
+        _schema(ExpensesInput),
+    ),
+    _tool(
+        "get_panchang",
+        "Today's (or another day's) tithi, nakshatra, yoga, sunrise, sunset and auspicious or "
+        "inauspicious timings, for the person's faiths and city. Use it for any question about the "
+        "date, a muhurat or what is observed on a day.",
+        _schema(PanchangInput),
+    ),
+    _tool(
+        "list_traditions",
+        "The family's recorded traditions: name, festival, category, since when, a short "
+        "description.",
+        _schema(TraditionsInput),
+    ),
+    _tool(
+        "navigate",
+        "Show a button that opens a screen of the app (" + ", ".join(SCREENS) + "). Use it when "
+        "they ask to open, see or go to something. They tap the button; it never opens by itself.",
+        _schema(NavigateInput),
+    ),
+    _tool(
         "propose_action",
         "Propose a change to the household's data. The person sees a confirmation card and "
         "nothing happens unless they approve. kind is one of: "
@@ -356,6 +415,131 @@ def _list_festivals(ctx: ToolContext, _: dict[str, Any]) -> ToolResult:
                 for f in festivals
             ]
         }
+    )
+
+
+def _names(ctx: ToolContext) -> dict[uuid.UUID, str]:
+    members = ctx.households.get_detail(ctx.actor, ctx.household_id).members
+    return {m.user.id: ("You" if m.user.id == ctx.actor.id else m.user.name) for m in members}
+
+
+def _get_expenses(ctx: ToolContext, raw: dict[str, Any]) -> ToolResult:
+    """The group's spending, worked out by the server: totals, who owes whom, latest items."""
+    data = ExpensesInput.model_validate(raw)
+    festival_id = None
+    if data.festival_name:
+        wanted = data.festival_name.strip().lower()
+        for festival in ctx.festivals.list_for_household(ctx.actor, ctx.household_id, None, 50, 0):
+            if wanted in festival.name.lower():
+                festival_id = festival.id
+                break
+        if festival_id is None:
+            return _error(f"No festival called '{data.festival_name}' in this group.")
+    names = _names(ctx)
+
+    def amount(minor: int) -> float:
+        return round(minor / 100, 2)
+
+    summary = ctx.expenses.summary(ctx.actor, ctx.household_id, festival_id)
+    balances = ctx.expenses.balances(ctx.actor, ctx.household_id, festival_id)
+    recent = ctx.expenses.list_for_household(ctx.actor, ctx.household_id, festival_id, 10, 0)
+    return ToolResult(
+        {
+            "currency": summary.currency,
+            "total": amount(summary.total_minor),
+            "count": summary.count,
+            "by_category": {k: amount(v) for k, v in summary.by_category.items()},
+            "paid_by": {
+                names.get(uuid.UUID(k), "Someone who left")
+                if k != "former"
+                else "Someone who left": amount(v)
+                for k, v in summary.by_payer.items()
+            },
+            "settled_up": balances.settled_up,
+            "who_pays_whom": [
+                {
+                    "from": names.get(tr.payer, "Someone who left")
+                    if tr.payer
+                    else "Someone who left",
+                    "to": names.get(tr.payee, "Someone who left")
+                    if tr.payee
+                    else "Someone who left",
+                    "amount": amount(tr.amount_minor),
+                }
+                for tr in balances.transfers
+            ],
+            "recent": [
+                {
+                    "what": e.description,
+                    "amount": amount(e.amount_minor),
+                    "category": e.category,
+                    "date": e.spent_on.isoformat(),
+                    "paid_by": names.get(e.paid_by, "Someone who left")
+                    if e.paid_by
+                    else "Someone who left",
+                }
+                for e in recent
+            ],
+        }
+    )
+
+
+def _get_panchang(ctx: ToolContext, raw: dict[str, Any]) -> ToolResult:
+    """The day's tithi, nakshatra and timings for the person's own faiths and city."""
+    data = PanchangInput.model_validate(raw)
+    today = ctx.clock().date()
+    place = ctx.panchang.place(data.city or ctx.actor.home_city, None, None, None)
+    region = ctx.panchang.region(place, None, None)
+    # Someone who asked a calendar question gets an answer even if they never said which faith they
+    # follow: with none set, every faith's calendar is included.
+    faiths = (
+        [data.faith.value]
+        if data.faith
+        else list(ctx.actor.faiths or []) or [f.value for f in Faith]
+    )
+    page = ctx.panchang.today_page(faiths, place, data.on or today, region)
+    return ToolResult(page.model_dump(mode="json", exclude={"terms"}))
+
+
+def _list_traditions(ctx: ToolContext, raw: dict[str, Any]) -> ToolResult:
+    data = TraditionsInput.model_validate(raw)
+    rows = ctx.traditions.list_for_household(
+        ctx.actor, ctx.household_id, data.festival_type, None, 40, 0
+    )
+    return ToolResult(
+        {
+            "traditions": [
+                {
+                    "name": r.name,
+                    "festival": r.festival_type,
+                    "category": r.category,
+                    "since": r.started_year,
+                    "active": r.active,
+                    "description": (r.description or "")[:240],
+                }
+                for r in rows
+            ]
+        }
+    )
+
+
+def _navigate(_: ToolContext, raw: dict[str, Any]) -> ToolResult:
+    data = NavigateInput.model_validate(raw)
+    if data.screen not in SCREENS:
+        return _error(f"Unknown screen. Choose one of: {', '.join(SCREENS)}")
+    titles = {
+        "add_expense": "Add an expense",
+        "family": "Your family",
+        "support": "Get a call back",
+    }
+    title = titles.get(data.screen, data.screen.replace("_", " ").capitalize())
+    card = NavigationCard(id=uuid.uuid4(), title=f"Open {title}", screen=data.screen)
+    return ToolResult(
+        {
+            "status": "shown",
+            "note": "The person taps the button to open it. Say which screen, briefly.",
+        },
+        cards=[card],
     )
 
 
@@ -632,6 +816,10 @@ HANDLERS: dict[str, Callable[[ToolContext, dict[str, Any]], ToolResult]] = {
     "calculate_hosting": _hosting,
     "jugaad_options": _jugaad,
     "ask_user": _ask_user,
+    "get_expenses": _get_expenses,
+    "get_panchang": _get_panchang,
+    "list_traditions": _list_traditions,
+    "navigate": _navigate,
     "propose_action": _propose,
     "handoff": _handoff,
 }
@@ -640,7 +828,12 @@ HANDLERS: dict[str, Callable[[ToolContext, dict[str, Any]], ToolResult]] = {
 def execute_action(ctx: ToolContext, action: str, params: dict[str, Any]) -> ToolResult:
     """Run an approved proposal as the person who approved it."""
     spec = ACTIONS[action]
-    services = ActionServices(festivals=ctx.festivals, inventory=ctx.inventory)
+    services = ActionServices(
+        festivals=ctx.festivals,
+        inventory=ctx.inventory,
+        expenses=ctx.expenses,
+        households=ctx.households,
+    )
     try:
         result = spec.execute(
             services, ctx.actor, ctx.household_id, spec.params.model_validate(params)
