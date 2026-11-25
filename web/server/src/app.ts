@@ -12,6 +12,7 @@ import { knowledgeRouter } from "./routes/knowledge";
 import { authRouter } from "./routes/auth";
 import { platformRouter } from "./routes/platform";
 import { tenantAdminRouter } from "./routes/tenant-admin";
+import { integrationsRouter } from "./routes/integrations";
 import {
   rejectViewAsMutation,
   requireAuth,
@@ -29,7 +30,16 @@ export function createApp() {
     .filter(Boolean);
 
   app.use(cors({ origin: configuredOrigins, credentials: true }));
-  app.use(express.json({ limit: "1mb" }));
+  // Keep the exact bytes of each JSON body: the FestiveOS integration signs the body, and a signature can
+  // only be checked against the bytes that were signed, not against a re-serialised copy.
+  app.use(
+    express.json({
+      limit: "1mb",
+      verify: (req, _res, buf) => {
+        (req as Request & { rawBody?: Buffer }).rawBody = buf;
+      },
+    }),
+  );
 
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true });
@@ -74,6 +84,8 @@ export function createApp() {
   app.use("/api/demo", requireTrustedOrigin, requireAuth, requirePlatform, demoRouter);
 
   // Machine callers keep their existing verification.
+  // Machine-to-machine: protected by an HMAC signature, not by the console login.
+  app.use("/api/integrations", integrationsRouter);
   app.use("/api/twilio", twilioRouter);
   app.use("/api/approvals", approvalsRouter);
   app.use("/api/audio", audioRouter);
