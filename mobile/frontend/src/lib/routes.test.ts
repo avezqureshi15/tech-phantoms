@@ -1,11 +1,21 @@
-import fs from "node:fs";
-import path from "node:path";
+// The project ships no Node type definitions (and adding a package for one test is not worth it), so the
+// few file functions used here are described by hand.
+type Entry = { name: string; isDirectory(): boolean };
+const fs = jest.requireActual("fs") as {
+  readdirSync(dir: string, options: { withFileTypes: true }): Entry[];
+  readFileSync(file: string, encoding: "utf8"): string;
+};
+const path = jest.requireActual("path") as {
+  join(...parts: string[]): string;
+  relative(from: string, to: string): string;
+  sep: string;
+};
 
 /**
  * Every place the app navigates to a fixed address must have a screen file behind it. A missing one
  * shows the person "not found" at run time, which nothing else would catch before release.
  */
-const SRC = path.join(__dirname, "..");
+const SRC = path.join(expect.getState().testPath ?? "", "..", ".."); // this file is src/lib/routes.test.ts
 const APP = path.join(SRC, "app");
 
 function walk(dir: string): string[] {
