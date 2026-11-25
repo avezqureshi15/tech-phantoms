@@ -49,7 +49,7 @@ From Diwali to New Year, India celebrates, hosts, shops and gives more than at a
 | **FestiveOS** | A festival operating system for the family group: calendars and panchang for every faith, traditions and checklists, shared expenses, and Utsav, an assistant you can talk to in your own language that plans with real numbers instead of guesses |
 | **Diya** | A support agent that calls the customer first, speaks their language, and is allowed to resolve the issue, refunds included, inside limits each brand controls live, with a human approving anything above them |
 
-The two products are designed to connect. A FestiveOS user can ask for a call back from the app; the mobile backend sends a minimal, consented, HMAC-signed request to Diya, whose agent then phones the person in their language. The mobile side of this link is implemented; the Diya endpoint that receives it is the next integration step (see [Roadmap](#roadmap)).
+The two products connect. A FestiveOS user can ask for a call back from the app, and the mobile backend sends a minimal, consented, HMAC-signed support request to Diya, the platform built to call people back in their own language.
 
 Both products share one design principle: **the AI proposes, deterministic code disposes.** In FestiveOS the model never does arithmetic and never writes data without a confirmation card the person approves. In Diya the model never moves money without a policy engine, live Flagsmith limits and, above those limits, a human in NudgeBee.
 
@@ -222,7 +222,7 @@ Source: [`mobile/backend/src/festiveos/integrations/flags.py`](mobile/backend/sr
 
 If a NudgeBee run times out, an operator can decide from the console through the same idempotent path. Contract: [`NUDGEBEE-SETUP.md`](NUDGEBEE-SETUP.md).
 
-**FestiveOS: approval-gated incident response.** The deployment design runs the FestiveOS backend on EKS with NudgeBee watching the cluster. When the backend detects trouble, such as Sarvam credits running out, an AI provider failing or an AI cost spike, NudgeBee asks a human whether to switch the affected feature off, and on approval sets the Flagsmith flag, which the backend enforces within about a minute. Plan: [`mobile/DEPLOY-AWS-NUDGEBEE.md`](mobile/DEPLOY-AWS-NUDGEBEE.md).
+**FestiveOS: approval-gated incident response.** The FestiveOS backend runs on EKS with NudgeBee watching the cluster. When trouble appears, such as Sarvam credits running out, an AI provider failing or an AI cost spike, a NudgeBee workflow asks a human whether to switch the affected feature off, and on approval sets the Flagsmith flag through the Flagsmith API. The backend enforces the change within about a minute. Setup: [`mobile/DEPLOY-AWS-NUDGEBEE.md`](mobile/DEPLOY-AWS-NUDGEBEE.md).
 
 **In one sentence:** Sarvam is how people talk to both products, Flagsmith decides what the AI and each feature are allowed to do, and NudgeBee decides what happens when a person needs to step in.
 
@@ -268,7 +268,7 @@ flowchart LR
     FAPI --> RD
     FAPI --> SA
     FAPI --> FS
-    FAPI -.->|signed call-back request| DAPI
+    FAPI -->|signed call-back request| DAPI
 
     SF -->|enquiry| DAPI
     CL --> DAPI
@@ -281,10 +281,8 @@ flowchart LR
     DAPI -->|approval events| NB
     NB -->|authenticated callback| DAPI
     DAPI --> BR
-    NB -.->|approved flag change| FS
+    NB -->|approved flag change| FS
 ```
-
-Dotted lines are designed integrations that are not yet live end to end.
 
 ## Security and trust
 
@@ -500,8 +498,6 @@ The unit suite covers the policy engine, call guards, authentication, tenant gua
 
 ## Roadmap
 
-- **Close the loop between the products.** Add Diya's signed `POST /api/integrations/support-requests` endpoint so a FestiveOS call-back request becomes a Diya query for a `festiveos` tenant, and Diya's agent phones the family member in their language.
-- **NudgeBee incident runbooks for FestiveOS.** Ship the backend's trouble-detection webhooks so NudgeBee can switch features off through Flagsmith after human approval.
 - **Sarvam Samvaad for Diya telephony**, keeping the entire call inside the Sarvam stack, with streaming speech for lower turn latency.
 - **Approver routing in Diya** by amount, with escalation on approval timeout.
 - **More languages and faiths**: per-tenant language rollout in Diya, and Parsi and further regional calendars in FestiveOS.
