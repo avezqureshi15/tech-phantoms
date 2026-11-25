@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+node_modules
+dist
+src/generated
+coverage
+**/__tests__
+.git
+npm-debug.log*

@@ -1,0 +1,9 @@
+[Unit]
+Description=Back up the Diya PostgreSQL databases to the encrypted S3 bucket
+Requires=docker.service fetch-secrets.service
+After=docker.service fetch-secrets.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/diya/backup.env
+ExecStart=/opt/diya/backup-postgres.sh

@@ -1,0 +1,33 @@
+{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	@widget path /widget.js
+	handle @widget {
+		reverse_proxy diya-server:4000
+	}
+
+	handle /api/v1/* {
+		reverse_proxy festiveos-api:8000
+	}
+
+	handle /api/* {
+		reverse_proxy diya-server:4000
+	}
+
+	@privateDocs path /docs* /redoc* /openapi.json
+	handle @privateDocs {
+		respond 404
+	}
+
+	handle {
+		root * /srv/www
+		try_files {path} /index.html
+		file_server
+	}
+}
