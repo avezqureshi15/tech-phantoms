@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "diya-client",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "web/client", "run", "dev"],
+      "port": 5173
+    },
+    {
+      "name": "diya-server",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "web/server", "run", "dev"],
+      "port": 4000
+    }
+  ]
+}

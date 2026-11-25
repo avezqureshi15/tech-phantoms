@@ -1,0 +1,497 @@
+// Diya — data model (BUILD-PLAN §4). Every table carries tenantId; every
+// query goes through src/db/scoped.ts — never a bare prisma.<model>.findMany().
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id        String @id @default(cuid())
+  slug      String @unique // "festive-mart", "sweet-co"
+  name      String
+  brandTone String @default("warm")
+  status      TenantStatus @default(ACTIVE)
+  createdById String?
+
+  // The integration seam (§1.1, §5.6). Null adapter fields = use the mock adapter.
+  adapter        String  @default("mock") // "mock" | "webhook"
+  webhookBaseUrl String?
+  apiKeyRef      String? // secret-manager reference, never the key itself
+
+  customers    Customer[]
+  orders       Order[]
+  tickets      Ticket[]
+  messages     Message[]
+  actions      AgentAction[]
+  approvals    Approval[]
+  products     Product[]
+  queries      Query[]
+  calls        CallSession[]
+  callTurns CallTurn[]
+  callOutcomes CallOutcome[]
+  articles  KnowledgeArticle[]
+  memberships Membership[]
+  invitations Invitation[]
+  auditEvents AuditEvent[]
+}
+
+model Customer {
+  id                    String    @id @default(cuid())
+  tenantId              String
+  name                  String
+  phone                 String
+  preferredLang         String    @default("hi-IN")
+  outboundConsentAt     DateTime?
+  outboundConsentSource String?
+  doNotCall             Boolean   @default(false)
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id])
+  orders  Order[]
+  tickets Ticket[]
+  queries Query[]
+
+  @@index([tenantId])
+}
+
+model Order {
+  id            String      @id // "ORD-1042"
+  tenantId      String
+  customerId    String
+  items         Json // [{ name, qty, priceInr }]
+  amountInr     Int
+  status        OrderStatus
+  isFestiveGift Boolean     @default(false)
+  promisedAt    DateTime
+  deliveredAt   DateTime?
+  riderEtaMins  Int?
+  refundedInr   Int         @default(0)
+  placedAt      DateTime    @default(now())
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@index([tenantId, customerId])
+}
+
+model Ticket {
+  id             String       @id @default(cuid())
+  tenantId       String
+  customerId     String
+  orderId        String?
+  channel        Channel
+  language       String
+  status         TicketStatus
+  resolutionType String? // REFUND | INFO | HUMAN
+  issueCluster   String? // late_delivery | missing_item | ...
+  promptVariant  String? // "A" | "B" (stretch: A/B test)
+  openedAt       DateTime     @default(now())
+  resolvedAt     DateTime?
+
+  tenant      Tenant        @relation(fields: [tenantId], references: [id])
+  customer    Customer      @relation(fields: [customerId], references: [id])
+  messages    Message[]
+  actions     AgentAction[]
+  approvals   Approval[]
+  callSession CallSession?
+
+  @@index([tenantId, status])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  tenantId  String
+  ticketId  String
+  role      Role
+  text      String
+  lang      String?
+  latencyMs Int?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  ticket Ticket @relation(fields: [ticketId], references: [id])
+
+  @@index([tenantId, ticketId])
+}
+
+// The audit trail. This table IS the pitch.
+model AgentAction {
+  id             String   @id @default(cuid())
+  tenantId       String
+  ticketId       String?
+  callSessionId  String?
+  actorUserId    String?
+  tool           String
+  args           Json
+  policyDecision Decision
+  denyReason     String?
+  flagSnapshot   Json // exact flag values at decision time
+  executed       Boolean  @default(false)
+  result         Json?
+  createdAt      DateTime @default(now())
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  ticket   Ticket?   @relation(fields: [ticketId], references: [id])
+  callSession CallSession? @relation(fields: [callSessionId], references: [id])
+  actor    User?     @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  approval Approval?
+
+  @@index([tenantId, ticketId])
+  @@index([tenantId, callSessionId])
+}
+
+// Opened when policy says REQUIRE_HUMAN; closed by the NudgeBee callback.
+model Approval {
+  id            String         @id @default(cuid())
+  tenantId      String
+  ticketId      String
+  agentActionId String         @unique
+  status        ApprovalStatus @default(PENDING)
+  approver      String?
+  workflowRunId String? // NudgeBee run reference
+  createdAt     DateTime       @default(now())
+  decidedAt     DateTime?
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+  ticket      Ticket      @relation(fields: [ticketId], references: [id])
+  agentAction AgentAction @relation(fields: [agentActionId], references: [id])
+
+  @@index([tenantId, status])
+}
+
+model Product {
+  id       String @id @default(cuid())
+  tenantId String
+  name     String
+  category String
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  queries Query[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, category])
+}
+
+model Query {
+  id           String      @id @default(cuid())
+  tenantId     String
+  customerId   String
+  orderId      String?
+  productId    String?
+  issueSummary String
+  category     String
+  priority     Priority    @default(NORMAL)
+  status       QueryStatus @default(NEW)
+  attempts     Int         @default(0)
+  detectedAt   DateTime    @default(now())
+  lastCallId   String?
+
+  tenant   Tenant        @relation(fields: [tenantId], references: [id])
+  customer Customer      @relation(fields: [customerId], references: [id])
+  product  Product?      @relation(fields: [productId], references: [id])
+  calls    CallSession[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, category])
+}
+
+model CallSession {
+  id             String      @id @default(cuid())
+  tenantId       String
+  queryId        String
+  ticketId       String      @unique
+  channel        CallChannel
+  state          CallState   @default(DIALING)
+  providerSid    String?     @unique
+  toNumber       String
+  fromNumber     String
+  startedAt      DateTime    @default(now())
+  answeredAt     DateTime?
+  endedAt        DateTime?
+  durationSec    Int?
+  turnCount      Int         @default(0)
+  turnLeaseUntil DateTime?
+  answeredBy     String?
+  errorCode      String?
+  errorMessage   String?
+
+  tenant  Tenant        @relation(fields: [tenantId], references: [id])
+  query   Query         @relation(fields: [queryId], references: [id])
+  ticket  Ticket        @relation(fields: [ticketId], references: [id])
+  turns   CallTurn[]
+  actions AgentAction[]
+  outcome CallOutcome?
+
+  @@index([tenantId, state])
+  @@index([queryId])
+}
+
+model CallTurn {
+  id              String   @id @default(cuid())
+  tenantId        String
+  callSessionId   String
+  idx             Int
+  recordingSid    String?
+  role            Role
+  text            String
+  lang            String?
+  recordingUrl    String?
+  audioKey        String?
+  endCall         Boolean  @default(false)
+  latencyMs       Int?
+  citedArticleIds String[]
+  createdAt       DateTime @default(now())
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+  callSession CallSession @relation(fields: [callSessionId], references: [id])
+
+  @@unique([callSessionId, idx])
+  @@unique([callSessionId, recordingSid])
+  @@index([tenantId, callSessionId])
+}
+
+model CallOutcome {
+  id            String     @id @default(cuid())
+  tenantId      String
+  callSessionId String     @unique
+  actorUserId   String?
+  value         Outcome
+  confidence    Confidence
+  evidence      String
+  rationale     String?
+  overriddenBy  String?
+  overrideNote  String?
+  createdAt     DateTime   @default(now())
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+  callSession CallSession @relation(fields: [callSessionId], references: [id])
+  actor       User?       @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, value])
+}
+
+model KnowledgeArticle {
+  id         String   @id @default(cuid())
+  tenantId   String
+  title      String
+  category   String
+  tags       String[]
+  body       String
+  citedCount Int      @default(0)
+  updatedAt  DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, category])
+}
+
+model User {
+  id                String       @id @default(cuid())
+  email             String       @unique
+  name              String
+  passwordHash      String?
+  passwordAlgo      String       @default("scrypt")
+  platformRole      PlatformRole @default(NONE)
+  status            UserStatus   @default(ACTIVE)
+  failedLoginCount  Int          @default(0)
+  lockedUntil       DateTime?
+  lastLoginAt       DateTime?
+  passwordChangedAt DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  memberships Membership[]
+  sessions    Session[]
+  invitesSent Invitation[] @relation("InvitedBy")
+  auditEvents AuditEvent[]
+  actions     AgentAction[]
+  outcomes    CallOutcome[]
+
+  @@index([platformRole])
+}
+
+model Membership {
+  id          String           @id @default(cuid())
+  userId      String
+  tenantId    String
+  role        TenantRole
+  status      MembershipStatus @default(ACTIVE)
+  invitedById String?
+  createdAt   DateTime         @default(now())
+  removedAt   DateTime?
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, role])
+}
+
+model Session {
+  id                String    @id @default(cuid())
+  userId            String
+  tokenHash         String    @unique
+  activeTenantId    String?
+  viewAsExpiresAt   DateTime?
+  createdAt         DateTime  @default(now())
+  lastSeenAt        DateTime  @default(now())
+  idleExpiresAt     DateTime
+  absoluteExpiresAt DateTime
+  revokedAt         DateTime?
+  revokedReason     String?
+  ip                String?
+  userAgent         String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([idleExpiresAt])
+}
+
+model Invitation {
+  id           String       @id @default(cuid())
+  email        String
+  tenantId     String?
+  role         TenantRole?
+  platformRole PlatformRole?
+  tokenHash    String       @unique
+  invitedById  String
+  expiresAt    DateTime
+  acceptedAt   DateTime?
+  revokedAt    DateTime?
+  createdAt    DateTime     @default(now())
+
+  tenant    Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invitedBy User    @relation("InvitedBy", fields: [invitedById], references: [id])
+
+  @@index([tenantId, email])
+  @@index([expiresAt])
+}
+
+model AuditEvent {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  tenantId    String?
+  action      String
+  targetType  String?
+  targetId    String?
+  metadata    Json?
+  ip          String?
+  createdAt   DateTime @default(now())
+
+  actor  User?   @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([actorUserId, createdAt])
+}
+
+enum PlatformRole {
+  NONE
+  SUPER_ADMIN
+}
+
+enum TenantRole {
+  TENANT_ADMIN
+  OPERATOR
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum MembershipStatus {
+  ACTIVE
+  REMOVED
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum OrderStatus {
+  PLACED
+  DISPATCHED
+  DELAYED
+  DELIVERED
+  CANCELLED
+}
+
+enum Channel {
+  VOICE
+  CHAT
+}
+
+enum TicketStatus {
+  OPEN
+  AUTO_RESOLVED
+  AWAITING_APPROVAL
+  ESCALATED
+  CLOSED
+}
+
+enum Role {
+  CUSTOMER
+  AGENT
+  SYSTEM
+}
+
+enum Decision {
+  ALLOW
+  DENY
+  REQUIRE_HUMAN
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum Priority {
+  HIGH
+  NORMAL
+}
+
+enum QueryStatus {
+  NEW
+  CALLING
+  ONGOING
+  RESOLVED
+  HUMAN_REVIEW
+  FAILED
+}
+
+enum CallState {
+  DIALING
+  RINGING
+  CONNECTED
+  WRAPPING_UP
+  ENDED
+  FAILED
+}
+
+enum CallChannel {
+  TWILIO
+  BROWSER
+}
+
+enum Outcome {
+  RESOLVED
+  ONGOING
+  HUMAN_REVIEW
+}
+
+enum Confidence {
+  HIGH
+  MEDIUM
+  LOW
+}
