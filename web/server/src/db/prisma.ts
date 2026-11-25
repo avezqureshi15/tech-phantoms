@@ -8,7 +8,8 @@ const globalForPrisma = globalThis as unknown as {
 /**
  * Use `prisma` everywhere. It refuses tenant-scoped model operations that omit a
  * tenantId predicate. `prismaUnscoped` is the explicit escape hatch for seeders,
- * Twilio webhooks, auth/session bootstrap and the platform tenant directory.
+ * public integration-ID resolution, Twilio webhooks, auth/session bootstrap
+ * and the platform tenant directory.
  */
 export const prismaUnscoped = globalForPrisma.prismaUnscoped ?? new PrismaClient();
 export const prisma = prismaUnscoped.$extends(tenantGuard);

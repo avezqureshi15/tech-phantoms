@@ -4,8 +4,10 @@
 # build output
 web/client/dist
 web/client/dist-ssr
+web/storefront-demo/dist-storefront
 web/server/dist
 web/server/src/generated
+deploy/web-dist
 
 # env files — keep the examples
 **/.env*

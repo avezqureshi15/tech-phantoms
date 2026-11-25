@@ -14,6 +14,8 @@ import AcceptInvite from "@/pages/AcceptInvite";
 import WorkspacePicker from "@/pages/WorkspacePicker";
 import Members from "@/pages/Members";
 import Platform from "@/pages/Platform";
+import Enquiries from "@/pages/Enquiries";
+import WidgetSettings from "@/pages/WidgetSettings";
 import { RequireAuth, RequirePlatform } from "@/auth/guards";
 
 export default function App() {
@@ -31,9 +33,11 @@ export default function App() {
           <Route path="/console/tickets/:id" element={<TicketDetail />} />
           <Route path="/queries" element={<Queries />} />
           <Route path="/queries/:id" element={<QueryDetail />} />
+          <Route path="/enquiries" element={<Enquiries />} />
           <Route path="/calls/:id" element={<CallDetail />} />
           <Route path="/knowledge" element={<Knowledge />} />
           <Route path="/settings/members" element={<Members />} />
+          <Route path="/settings/widget" element={<WidgetSettings />} />
         </Route>
 
         <Route path="/platform/tenants" element={<RequirePlatform><Platform /></RequirePlatform>} />

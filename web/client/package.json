@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:storefront": "vite ../storefront-demo --host 0.0.0.0 --port 5174 --strictPort",
     "build": "tsc -b && vite build",
+    "build:storefront": "vite build ../storefront-demo --outDir dist-storefront",
     "lint": "oxlint",
     "preview": "vite preview"
   },

@@ -3,7 +3,7 @@ import { createApp } from "./app";
 import { sweepExpiredSessions } from "./auth/sessions";
 
 const app = createApp();
-const port = Number(process.env.PORT ?? 4000);
+const port = Number(process.env.PORT ?? 4002);
 
 app.listen(port, () => {
   console.log(`Diya API listening on http://localhost:${port}`);

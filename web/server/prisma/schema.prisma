@@ -33,12 +33,54 @@ model Tenant {
   products     Product[]
   queries      Query[]
   calls        CallSession[]
-  callTurns CallTurn[]
+  callTurns    CallTurn[]
   callOutcomes CallOutcome[]
-  articles  KnowledgeArticle[]
-  memberships Membership[]
-  invitations Invitation[]
-  auditEvents AuditEvent[]
+  articles     KnowledgeArticle[]
+  memberships  Membership[]
+  invitations  Invitation[]
+  auditEvents  AuditEvent[]
+  widgetInstallation WidgetInstallation?
+  enquiries          Enquiry[]
+}
+
+model WidgetInstallation {
+  id             String   @id @default(cuid())
+  tenantId       String   @unique
+  publicId       String   @unique
+  enabled        Boolean  @default(true)
+  allowedOrigins String[] @default([])
+  accentColor    String   @default("#B7503C")
+  welcomeText    String   @default("Have a question? Send us a note.")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  enquiries Enquiry[]
+}
+
+model Enquiry {
+  id                   String        @id @default(cuid())
+  tenantId             String
+  widgetInstallationId String
+  submissionId         String
+  name                 String
+  email                String?
+  phone                String?
+  message              String
+  pageUrl              String?
+  pageTitle            String?
+  productName          String?
+  contactConsentAt     DateTime
+  status               EnquiryStatus @default(NEW)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  widgetInstallation WidgetInstallation @relation(fields: [widgetInstallationId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, submissionId])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, status, createdAt])
 }
 
 model Customer {
@@ -494,4 +536,10 @@ enum Confidence {
   HIGH
   MEDIUM
   LOW
+}
+
+enum EnquiryStatus {
+  NEW
+  REVIEWED
+  CLOSED
 }

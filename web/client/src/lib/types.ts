@@ -118,3 +118,35 @@ export interface Metrics {
   awaitingApproval: number;
   avgHandleTimeSeconds: number;
 }
+
+export type EnquiryStatus = "NEW" | "REVIEWED" | "CLOSED";
+
+export interface Enquiry {
+  id: string;
+  tenantId: string;
+  widgetInstallationId: string;
+  submissionId: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  message: string;
+  pageUrl: string | null;
+  pageTitle: string | null;
+  productName: string | null;
+  contactConsentAt: string;
+  status: EnquiryStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WidgetInstallation {
+  id: string;
+  tenantId: string;
+  publicId: string;
+  enabled: boolean;
+  allowedOrigins: string[];
+  accentColor: string;
+  welcomeText: string;
+  createdAt: string;
+  updatedAt: string;
+}

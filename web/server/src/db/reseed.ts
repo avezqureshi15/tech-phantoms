@@ -34,6 +34,8 @@ type SeedOrder = {
 
 async function truncateAll() {
   // FK-safe order: children before parents.
+  await prismaUnscoped.enquiry.deleteMany();
+  await prismaUnscoped.widgetInstallation.deleteMany();
   await prismaUnscoped.approval.deleteMany();
   await prismaUnscoped.agentAction.deleteMany();
   await prismaUnscoped.callOutcome.deleteMany();

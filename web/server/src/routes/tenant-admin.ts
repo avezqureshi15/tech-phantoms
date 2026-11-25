@@ -4,10 +4,67 @@ import { prisma } from "../db/prisma";
 import { createInvitation, deliverInvitation } from "../auth/invites";
 import { recordAudit } from "../auth/audit";
 import { clearTenantFromSessions } from "../auth/sessions";
+import { rejectViewAsMutation } from "../auth/middleware";
+import { randomBytes } from "node:crypto";
+import { parseAllowedOrigins, isHexColor } from "./widget-validation";
 
 export const tenantAdminRouter = Router();
 
 const ROLES: TenantRole[] = ["TENANT_ADMIN", "OPERATOR"];
+
+tenantAdminRouter.get("/widget", async (req, res) => {
+  const widget = await prisma.widgetInstallation.findUnique({ where: { tenantId: req.auth!.tenant!.id } });
+  res.json({ widget });
+});
+
+tenantAdminRouter.put("/widget", rejectViewAsMutation, async (req, res) => {
+  const body = req.body && typeof req.body === "object" ? req.body as Record<string, unknown> : {};
+  const allowedOrigins = parseAllowedOrigins(body.allowedOrigins);
+  const enabled = typeof body.enabled === "boolean" ? body.enabled : true;
+  const accentColor = typeof body.accentColor === "string" ? body.accentColor.trim() : "#B7503C";
+  const welcomeText = typeof body.welcomeText === "string" ? body.welcomeText.trim() : "Have a question? Send us a note.";
+
+  if (!allowedOrigins || (enabled && allowedOrigins.length === 0)) {
+    res.status(400).json({ error: "Add at least one valid website origin before enabling the widget" });
+    return;
+  }
+  if (process.env.NODE_ENV === "production" && allowedOrigins.some((origin) => !origin.startsWith("https://"))) {
+    res.status(400).json({ error: "Production widget origins must use HTTPS" });
+    return;
+  }
+  if (!isHexColor(accentColor)) {
+    res.status(400).json({ error: "Accent color must be a six-digit hex color" });
+    return;
+  }
+  if (welcomeText.length < 4 || welcomeText.length > 100) {
+    res.status(400).json({ error: "Welcome text must be between 4 and 100 characters" });
+    return;
+  }
+
+  const tenantId = req.auth!.tenant!.id;
+  const widget = await prisma.widgetInstallation.upsert({
+    where: { tenantId },
+    create: {
+      tenantId,
+      publicId: `diya_${randomBytes(18).toString("base64url")}`,
+      enabled,
+      allowedOrigins,
+      accentColor,
+      welcomeText,
+    },
+    update: { enabled, allowedOrigins, accentColor, welcomeText },
+  });
+  await recordAudit({
+    actorUserId: req.auth!.user.id,
+    tenantId,
+    action: "widget.configure",
+    targetType: "WidgetInstallation",
+    targetId: widget.id,
+    metadata: { enabled, allowedOrigins },
+    ip: req.ip,
+  });
+  res.json({ widget });
+});
 
 function roleFrom(body: unknown): TenantRole | null {
   const value = body && typeof body === "object" ? (body as Record<string, unknown>).role : undefined;

@@ -16,6 +16,26 @@ export async function seedOutboundData(): Promise<{ products: number; queries: n
   let articleCount = 0;
 
   for (const tenant of tenants) {
+    if (tenant.slug === "festive-mart") {
+      await prismaUnscoped.widgetInstallation.upsert({
+        where: { tenantId: tenant.id },
+        create: {
+          tenantId: tenant.id,
+          publicId: "diya_demo_festive_mart",
+          allowedOrigins: ["http://localhost:5174", "http://127.0.0.1:5174"],
+          accentColor: "#B7503C",
+          welcomeText: "Need a hand finding the perfect festive detail? Send us a note.",
+        },
+        update: {
+          publicId: "diya_demo_festive_mart",
+          enabled: true,
+          allowedOrigins: ["http://localhost:5174", "http://127.0.0.1:5174"],
+          accentColor: "#B7503C",
+          welcomeText: "Need a hand finding the perfect festive detail? Send us a note.",
+        },
+      });
+    }
+
     const categoryProducts = new Map<string, string>();
     const articles = seedArticles(tenant.id);
     for (const article of articles) {

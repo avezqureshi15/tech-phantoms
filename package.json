@@ -3,9 +3,10 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "dev": "concurrently -n client,server -c blue,green \"npm:dev:client\" \"npm:dev:server\"",
+    "dev": "concurrently -n client,server,storefront -c blue,green,magenta \"npm:dev:client\" \"npm:dev:server\" \"npm:dev:storefront\"",
     "dev:client": "npm --prefix web/client run dev",
-    "dev:server": "npm --prefix web/server run dev"
+    "dev:server": "npm --prefix web/server run dev",
+    "dev:storefront": "npm --prefix web/client run dev:storefront"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

@@ -6,8 +6,8 @@ import { Prisma } from "../generated/prisma";
  * injection: a mistake should fail loudly in development and tests.
  *
  * Legitimate cross-tenant paths use the explicit `prismaUnscoped` export and
- * are limited to seeders, Twilio webhooks, auth/session bootstrap and the
- * platform tenant directory.
+ * are limited to seeders, public integration-ID resolution, Twilio webhooks,
+ * auth/session bootstrap and the platform tenant directory.
  */
 export const TENANT_SCOPED_MODELS = new Set([
   "Customer",
@@ -22,6 +22,8 @@ export const TENANT_SCOPED_MODELS = new Set([
   "CallTurn",
   "CallOutcome",
   "KnowledgeArticle",
+  "WidgetInstallation",
+  "Enquiry",
   "Membership",
   "Invitation",
   "AuditEvent",

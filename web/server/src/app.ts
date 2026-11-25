@@ -1,6 +1,7 @@
 import "./load-env";
 import express, { type NextFunction, type Request, type Response } from "express";
 import cors from "cors";
+import { resolve } from "node:path";
 import { voiceRouter } from "./routes/voice";
 import { consoleRouter } from "./routes/console";
 import { approvalsRouter } from "./routes/approvals";
@@ -12,6 +13,8 @@ import { knowledgeRouter } from "./routes/knowledge";
 import { authRouter } from "./routes/auth";
 import { platformRouter } from "./routes/platform";
 import { tenantAdminRouter } from "./routes/tenant-admin";
+import { publicWidgetRouter } from "./routes/widget-public";
+import { enquiriesRouter } from "./routes/enquiries";
 import {
   rejectViewAsMutation,
   requireAuth,
@@ -22,14 +25,24 @@ import {
 
 export function createApp() {
   const app = express();
+  app.set("trust proxy", 1);
 
   const configuredOrigins = (process.env.CLIENT_ORIGIN ?? "http://localhost:5174,http://localhost:5173")
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
 
-  app.use(cors({ origin: configuredOrigins, credentials: true }));
   app.use(express.json({ limit: "1mb" }));
+
+  app.get("/widget.js", (_req, res) => {
+    res.setHeader("Cache-Control", "public, max-age=300");
+    res.type("application/javascript").sendFile(resolve(process.cwd(), "public", "widget.js"));
+  });
+
+  // The public widget has its own tenant-aware origin checks, separate from session APIs.
+  app.use("/api/public/widget", publicWidgetRouter);
+
+  app.use(cors({ origin: configuredOrigins, credentials: true }));
 
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true });
@@ -66,6 +79,7 @@ export function createApp() {
   app.use("/api/auth", requireTrustedOrigin, authRouter);
   app.use("/api/platform", requireTrustedOrigin, requireAuth, requirePlatform, platformRouter);
   app.use("/api/tenant", requireTrustedOrigin, requireAuth, requireTenant, requireRole("TENANT_ADMIN"), tenantAdminRouter);
+  app.use("/api/enquiries", requireTrustedOrigin, requireAuth, requireTenant, rejectViewAsMutation, enquiriesRouter);
   app.use("/api/queries", requireTrustedOrigin, requireAuth, requireTenant, rejectViewAsMutation, queriesRouter);
   app.use("/api/calls", requireTrustedOrigin, requireAuth, requireTenant, rejectViewAsMutation, callsRouter);
   app.use("/api/knowledge", requireTrustedOrigin, requireAuth, requireTenant, rejectViewAsMutation, knowledgeRouter);

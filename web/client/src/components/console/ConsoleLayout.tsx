@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BookOpen, ClipboardList, LayoutDashboard, ListChecks, LogOut, ShieldCheck, Users } from "lucide-react";
+import { BookOpen, ClipboardList, Inbox, LayoutDashboard, ListChecks, LogOut, Plug, ShieldCheck, Users } from "lucide-react";
 import { Link, NavLink, Outlet, useLocation, useSearchParams } from "react-router-dom";
 import { useAuth, type TenantRole } from "@/auth/AuthProvider";
 import WorkspacePicker from "@/pages/WorkspacePicker";
@@ -87,7 +87,9 @@ export function ConsoleLayout() {
   const isQueries = location.pathname.startsWith("/queries");
   const isCallDetail = location.pathname.startsWith("/calls/");
   const isKnowledge = location.pathname.startsWith("/knowledge");
+  const isEnquiries = location.pathname.startsWith("/enquiries");
   const isMembers = location.pathname.startsWith("/settings/members");
+  const isWidgetSettings = location.pathname.startsWith("/settings/widget");
   const overviewActive = location.pathname === "/console" && location.hash !== "#tickets";
   const ticketsActive = location.hash === "#tickets" || isDetail;
   const context: ConsoleContext = {
@@ -105,9 +107,13 @@ export function ConsoleLayout() {
         ? "Queries"
         : isKnowledge
           ? "Knowledge"
-          : isMembers
-            ? "Members"
-            : "Console";
+          : isEnquiries
+            ? "Enquiries"
+            : isMembers
+              ? "Members"
+              : isWidgetSettings
+                ? "Website widget"
+                : "Console";
 
   return (
     <div className="flex min-h-svh flex-1 bg-brand-light/40">
@@ -127,6 +133,10 @@ export function ConsoleLayout() {
             <ListChecks className="size-4" aria-hidden="true" />
             Tickets
           </Link>
+          <NavLink to={`/enquiries?tenantSlug=${tenantSlug}`} className={() => navClass(isEnquiries)}>
+            <Inbox className="size-4" aria-hidden="true" />
+            Enquiries
+          </NavLink>
           <NavLink to={`/queries?tenantSlug=${tenantSlug}`} className={() => navClass(isQueries)}>
             <ClipboardList className="size-4" aria-hidden="true" />
             Queries
@@ -135,6 +145,12 @@ export function ConsoleLayout() {
             <BookOpen className="size-4" aria-hidden="true" />
             Knowledge
           </NavLink>
+          {isTenantAdmin && (
+            <NavLink to={`/settings/widget?tenantSlug=${tenantSlug}`} className={() => navClass(isWidgetSettings)}>
+              <Plug className="size-4" aria-hidden="true" />
+              Website widget
+            </NavLink>
+          )}
           {isTenantAdmin && (
             <NavLink to={`/settings/members?tenantSlug=${tenantSlug}`} className={() => navClass(isMembers)}>
               <Users className="size-4" aria-hidden="true" />
@@ -234,10 +250,20 @@ export function ConsoleLayout() {
             <ClipboardList className="size-4" aria-hidden="true" />
             Queries
           </NavLink>
+          <NavLink to={`/enquiries?tenantSlug=${tenantSlug}`} className={() => navClass(isEnquiries)}>
+            <Inbox className="size-4" aria-hidden="true" />
+            Enquiries
+          </NavLink>
           <NavLink to={`/knowledge?tenantSlug=${tenantSlug}`} className={() => navClass(isKnowledge)}>
             <BookOpen className="size-4" aria-hidden="true" />
             Knowledge
           </NavLink>
+          {isTenantAdmin && (
+            <NavLink to={`/settings/widget?tenantSlug=${tenantSlug}`} className={() => navClass(isWidgetSettings)}>
+              <Plug className="size-4" aria-hidden="true" />
+              Widget
+            </NavLink>
+          )}
           {isTenantAdmin && (
             <NavLink to={`/settings/members?tenantSlug=${tenantSlug}`} className={() => navClass(isMembers)}>
               <Users className="size-4" aria-hidden="true" />

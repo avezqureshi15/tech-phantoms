@@ -7,6 +7,8 @@ describe("tenant guard", () => {
       .toContain("tenantId predicate");
     expect(validateTenantScope("KnowledgeArticle", "findMany", { where: { category: "sweets" } }))
       .toContain("tenantId predicate");
+    expect(validateTenantScope("Enquiry", "findMany", { where: { status: "NEW" } }))
+      .toContain("tenantId predicate");
     expect(validateTenantScope("Customer", "updateMany", { where: { doNotCall: true }, data: {} }))
       .toContain("tenantId predicate");
   });
@@ -14,6 +16,7 @@ describe("tenant guard", () => {
   it("allows tenant-scoped operations that carry tenantId", () => {
     expect(validateTenantScope("CallSession", "findFirst", { where: { id: "call-1", tenantId: "t1" } })).toBeNull();
     expect(validateTenantScope("KnowledgeArticle", "create", { data: { tenantId: "t1", title: "x" } })).toBeNull();
+    expect(validateTenantScope("WidgetInstallation", "findFirst", { where: { tenantId: "t1" } })).toBeNull();
     expect(validateTenantScope("Query", "updateMany", { where: { tenantId: "t1" }, data: { status: "NEW" } })).toBeNull();
   });
 
