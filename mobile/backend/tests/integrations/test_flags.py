@@ -116,6 +116,27 @@ def test_a_failing_flag_service_is_logged_once_not_on_every_request(caplog) -> N
     assert "down" not in caplog.text  # the error's text is never logged, only its type
 
 
+def test_the_first_failure_is_logged_even_just_after_the_machine_starts(
+    monkeypatch, caplog
+) -> None:
+    # time.monotonic() can start near zero (it counts from boot on macOS), so "never logged yet"
+    # must not look like "logged a moment ago".
+    monkeypatch.setattr(flags_module.time, "monotonic", lambda: 10.0)
+    flags = FeatureFlags(FakeClient(error=ConnectionError("down")))
+    sdk = logging.getLogger("flagsmith")
+    one_line = flags_module._OneLine()
+    sdk.addFilter(one_line)
+    try:
+        with caplog.at_level(logging.WARNING):
+            flags.for_user("u1")
+            sdk.warning("Error retrieving environment document from API")
+    finally:
+        sdk.removeFilter(one_line)
+
+    assert len([r for r in caplog.records if r.name == "festiveos.flags"]) == 1
+    assert len([r for r in caplog.records if r.name == "flagsmith"]) == 1
+
+
 # --------------------------------------------------------------------------- remote settings
 
 

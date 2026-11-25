@@ -96,7 +96,7 @@ def _text(value: object) -> str | None:
 class FeatureFlags:
     def __init__(self, client: Flagsmith | None = None) -> None:
         self._client = client
-        self._last_failure = 0.0
+        self._last_failure = float("-inf")  # so the first failure is always logged
         self._cache: dict[str | None, tuple[float, Evaluated]] = {}
 
     def _evaluate(self, user_id: str | None) -> Evaluated:
@@ -176,7 +176,7 @@ class _OneLine(logging.Filter):
 
     def __init__(self) -> None:
         super().__init__()
-        self._last = 0.0
+        self._last = float("-inf")
 
     def filter(self, record: logging.LogRecord) -> bool:
         if record.levelno < logging.WARNING:
