@@ -469,7 +469,7 @@ export function useAudio(festival?: string) {
 export function useUpdateProfile() {
   const { updateUser } = useAuth();
   return useMutation({
-    mutationFn: (body: { faiths?: string[]; home_city?: string }) =>
+    mutationFn: (body: { faiths?: string[]; home_city?: string | null }) =>
       request("/users/me", { method: "PATCH", body, schema: userSchema }),
     onSuccess: (user) => updateUser(user),
   });

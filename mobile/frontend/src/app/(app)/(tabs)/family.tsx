@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
 
 import { AppText } from "@/components/AppText";
@@ -8,7 +7,6 @@ import { Avatar } from "@/components/Avatar";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Chip } from "@/components/Chip";
-import { IconTile } from "@/components/IconTile";
 import { ListRow } from "@/components/ListRow";
 import { PageHeader, SectionTitle } from "@/components/Rows";
 import { Screen } from "@/components/Screen";
@@ -21,21 +19,18 @@ import {
   useIsAdmin,
   useUpdateHousehold,
 } from "@/features/queries";
-import { useAuth, useCurrentUser } from "@/lib/auth";
+import { useCurrentUser } from "@/lib/auth";
 import { deviceTimeZone, zoneLabel } from "@/lib/clock";
 import { titleCase } from "@/lib/meta";
 import { colors, spacing } from "@/lib/theme";
 
 export default function FamilyScreen() {
   const user = useCurrentUser();
-  const { signOut, deleteAccount } = useAuth();
   const { household } = useActiveHousehold();
   const detail = useHousehold(household?.id);
   const isAdmin = useIsAdmin(household?.id);
-  const [signingOut, setSigningOut] = useState(false);
   const deleteHousehold = useDeleteHousehold(household?.id ?? "");
   const updateHousehold = useUpdateHousehold(household?.id ?? "");
-  const [deletingAccount, setDeletingAccount] = useState(false);
 
   if (!detail.data) {
     return detail.isError ? (
@@ -67,32 +62,6 @@ export default function FamilyScreen() {
     );
   };
 
-  const confirmDeleteAccount = () => {
-    Alert.alert(
-      "Delete your account?",
-      "This permanently deletes your account and removes you from every family. Families you're alone in are deleted with you. Traditions you recorded stay with your family. This can't be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete my account",
-          style: "destructive",
-          onPress: () => {
-            setDeletingAccount(true);
-            deleteAccount().catch((error: Error) => {
-              setDeletingAccount(false);
-              Alert.alert("Couldn't delete your account", error.message);
-            });
-          },
-        },
-      ],
-    );
-  };
-
-  const handleSignOut = async () => {
-    setSigningOut(true);
-    await signOut();
-  };
-
   return (
     <Screen topInset refreshing={detail.isRefetching} onRefresh={() => void detail.refetch()}>
       <PageHeader
@@ -107,11 +76,7 @@ export default function FamilyScreen() {
         {detail.data.members.map((member) => (
           <Card
             key={member.user.id}
-            onPress={
-              isAdmin || member.user.id === user.id
-                ? () => router.push(`/member/${member.user.id}`)
-                : undefined
-            }
+            onPress={isAdmin || member.user.id === user.id ? () => router.push(`/member/${member.user.id}`) : undefined}
             accessibilityLabel={member.user.name}
           >
             <View style={styles.row}>
@@ -166,40 +131,20 @@ export default function FamilyScreen() {
         );
       })()}
 
-      <View style={{ gap: spacing.md }}>
-        <SectionTitle title="Your account" />
-        <Card>
-          <View style={styles.row}>
-            <Avatar name={user.name} uri={user.avatar_url} size={46} />
-            <View style={{ flex: 1 }}>
-              <AppText variant="heading">{user.name}</AppText>
-              <AppText variant="caption" color={colors.muted}>
-                {user.email}
-              </AppText>
-            </View>
-          </View>
-        </Card>
-        <ListRow
-          leading={<IconTile icon="color-palette" />}
-          title="Appearance"
-          subtitle="Choose your festive pattern"
-          onPress={() => router.push("/appearance")}
-        />
-        <Button label="Sign out" variant="secondary" icon="log-out-outline" loading={signingOut} onPress={handleSignOut} />
-        <Button
-          label="Delete my account"
-          variant="danger"
-          icon="trash-outline"
-          loading={deletingAccount}
-          onPress={confirmDeleteAccount}
-        />
-      </View>
+      <ListRow
+        leading={<Avatar name={user.name} uri={user.avatar_url} size={46} />}
+        title="Your profile"
+        subtitle="Faiths, city, appearance and account"
+        onPress={() => router.push("/profile")}
+      />
 
       {canDeleteFamily ? (
         <View style={{ gap: spacing.sm }}>
           <SectionTitle title="Danger zone" />
           <AppText variant="caption" color={colors.muted}>
-            {"You're the only member, so you can delete this family. Once others join, you'll need to remove them first."}
+            {
+              "You're the only member, so you can delete this family. Once others join, you'll need to remove them first."
+            }
           </AppText>
           <Button
             label="Delete this family"

@@ -149,7 +149,11 @@ export default function HomeScreen() {
                 <Ionicons name="search" size={20} color={colors.maroon} />
               </Glass>
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="Members" onPress={() => router.push("/family")}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Your profile"
+              onPress={() => router.push("/profile")}
+            >
               <Glass radius={22} interactive style={styles.circle}>
                 <Avatar name={user.name} uri={user.avatar_url} size={34} />
               </Glass>
