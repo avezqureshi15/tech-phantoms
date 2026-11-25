@@ -30,6 +30,7 @@ from festiveos.households.router import router as households_router
 from festiveos.inventory.router import router as inventory_router
 from festiveos.panchang.router import router as panchang_router
 from festiveos.search.router import router as search_router
+from festiveos.support.router import router as support_router
 from festiveos.traditions.router import router as traditions_router
 
 API_PREFIX = "/api/v1"
@@ -46,6 +47,7 @@ ROUTERS = (
     panchang_router,
     search_router,
     audio_router,
+    support_router,
 )
 
 # SQLSTATEs that mean "the database was busy, try again" rather than "something is broken":

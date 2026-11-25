@@ -124,6 +124,16 @@ def flagsmith_server_key() -> str:
     return (os.getenv("FLAGSMITH_SERVER_KEY") or "").strip()
 
 
+def diya_base_url() -> str:
+    """Where the web support platform (``web/server``) lives, e.g. ``https://support.example.com``."""
+    return (os.getenv("DIYA_BASE_URL") or "").strip().rstrip("/")
+
+
+def diya_secret() -> str:
+    """The shared secret both servers sign support requests with. Never logged or sent."""
+    return (os.getenv("DIYA_INTEGRATION_SECRET") or "").strip()
+
+
 def sarvam_voice() -> str | None:
     """The speaking voice from ``SARVAM_VOICE`` (blank means the built-in default)."""
     return (os.getenv("SARVAM_VOICE") or "").strip().lower() or None

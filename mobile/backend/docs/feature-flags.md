@@ -22,6 +22,7 @@ model is used. The code holds the defaults (`integrations/flags.py`, `DEFAULTS`)
 | `event_search` | on/off | Live web search for events (the costly part). Site links still work. |
 | `receipt_scan` | on/off | `POST .../expenses/scan`. |
 | `document_upload` | on/off | `POST .../ai/documents`. |
+| `support_callback` | on/off | Asking the support team to phone you back (`POST /support/callback`). |
 | `ai_model` | value | Model id, e.g. a cheaper model in an incident. Ignored if blank, over 60 chars or has spaces. |
 | `ai_effort` | value | `low`, `medium`, `high`, `xhigh` or `max`. Anything else is ignored. |
 | `announcement` | value | A short notice shown on Home (capped at 280 characters). |

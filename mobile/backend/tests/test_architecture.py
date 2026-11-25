@@ -30,6 +30,7 @@ FEATURE_DEPENDENCIES: dict[str, set[str]] = {
     "ai": {"users", "auth", "households", "festivals", "inventory"},
     "panchang": {"users", "auth"},
     "audio": {"users", "auth"},
+    "support": {"users", "auth"},
     "search": {"users", "auth", "households", "festivals", "traditions", "expenses"},
 }
 

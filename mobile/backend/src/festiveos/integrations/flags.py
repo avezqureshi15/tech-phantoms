@@ -37,6 +37,7 @@ DEFAULTS: dict[str, bool] = {
     "event_search": True,  # live web search for events (the costly part of finding events)
     "receipt_scan": True,  # reading a receipt into an expense
     "document_upload": True,  # attaching documents to a chat with Utsav
+    "support_callback": True,  # asking the support team to phone you back
 }
 FEATURE_NAMES = {
     "utsav": "Utsav",
@@ -46,6 +47,7 @@ FEATURE_NAMES = {
     "event_search": "Event search",
     "receipt_scan": "Receipt scanning",
     "document_upload": "Documents",
+    "support_callback": "Call-back support",
 }
 
 

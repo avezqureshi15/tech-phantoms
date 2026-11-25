@@ -55,6 +55,7 @@ export default function AppLayout() {
         <Stack.Screen name="group/index" options={{ title: "Your groups", presentation: "modal" }} />
         <Stack.Screen name="group/new" options={{ title: "New group", presentation: "modal" }} />
         <Stack.Screen name="expense/new" options={{ title: "Add expense", presentation: "modal" }} />
+        <Stack.Screen name="support" options={{ title: "Get a call back", presentation: "modal" }} />
         <Stack.Screen name="expense/[id]" options={{ title: "Expense", presentation: "modal" }} />
         <Stack.Screen name="search" options={{ title: "Search", presentation: "modal" }} />
         <Stack.Screen name="audio" options={{ title: "Music", presentation: "modal" }} />

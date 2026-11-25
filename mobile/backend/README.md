@@ -118,6 +118,8 @@ All settings are environment variables (a local `.env` is read automatically). N
 | `SARVAM_API_KEY` | no | Turns on receipt scanning and document reading (Sarvam Document AI) and translation. Without it those routes answer 503. |
 | `FLAGSMITH_SERVER_KEY` | no | Flagsmith server-side key; empty means every feature is on. See `docs/feature-flags.md`. |
 | `FLAGSMITH_API_URL` | no | Self-hosted Flagsmith API URL; empty means Flagsmith Cloud. |
+| `DIYA_BASE_URL` | no | Address of the web support platform, for call-back requests. See `docs/web-integration.md`. |
+| `DIYA_INTEGRATION_SECRET` | no | Shared signing secret with the web server. Both must be set for call backs to work. |
 | `MAX_UPLOAD_BYTES` | no | Largest receipt or document upload, default 10 MB. Other routes keep the 256 KB JSON limit. |
 | `ENABLE_API_DOCS` | no | `true` turns on `/docs`, `/redoc` and `/openapi.json`. **Off by default.** |
 | `DB_LOCK_TIMEOUT_MS` | no | How long a transaction waits for a lock before failing with 503. Default `5000`. |

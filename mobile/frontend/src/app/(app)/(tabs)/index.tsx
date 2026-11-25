@@ -242,6 +242,16 @@ export default function HomeScreen() {
           />
         </FadeInUp>
       ) : null}
+      {features.on("support_callback") ? (
+        <FadeInUp delay={90}>
+          <ListRow
+            leading={<IconTile icon="call" tint={colors.saffronDeep} />}
+            title="Need help? Get a call back"
+            subtitle="Our team phones you, in your language"
+            onPress={() => router.push("/support")}
+          />
+        </FadeInUp>
+      ) : null}
 
       {page.data ? (
         <FadeInUp delay={80}>

@@ -24,6 +24,8 @@ SCAN_DAILY = Limit("documents.daily", 60, 24 * 3600)
 # Talking to the app is frequent but each clip is a paid call, so it has its own budget.
 VOICE = Limit("voice.clip", 60, 3600)
 VOICE_DAILY = Limit("voice.daily", 300, 24 * 3600)
+# A call back costs a phone call and a person's time, so three a day is plenty for one person.
+SUPPORT_CALLBACK = Limit("support.callback", 3, 24 * 3600)
 # A backstop for every request from one address, including ones that match no route.
 GLOBAL_PER_IP = Limit("global", 1200, 60)
 
@@ -36,6 +38,7 @@ write = rate_limited(WRITE)
 destructive = rate_limited(DESTRUCTIVE)
 read = rate_limited(READ)
 ai_turn = rate_limited(AI_TURN)
+support_callback = rate_limited(SUPPORT_CALLBACK)
 ai_daily = rate_limited(AI_DAILY)
 scan = rate_limited(SCAN)
 scan_daily = rate_limited(SCAN_DAILY)

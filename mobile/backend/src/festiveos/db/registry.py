@@ -10,5 +10,6 @@ from festiveos.expenses import models as expense_models  # noqa: F401
 from festiveos.festivals import models as festival_models  # noqa: F401
 from festiveos.households import models as household_models  # noqa: F401
 from festiveos.inventory import models as inventory_models  # noqa: F401
+from festiveos.support import models as support_models  # noqa: F401
 from festiveos.traditions import models as tradition_models  # noqa: F401
 from festiveos.users import models as user_models  # noqa: F401

@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import type { Coordinates } from "@/lib/location";
 import { FEATURE_DEFAULTS, featuresSchema, isOn, type Feature } from "@/lib/features";
 import { receiptDraftSchema } from "@/lib/receipt";
+import { callbackResultSchema, type toRequest } from "@/lib/support";
 import { attachedDocumentSchema } from "@/lib/utsav/schemas";
 import {
   balancesSchema,
@@ -94,8 +95,7 @@ export function useFestival(id: string | undefined) {
 export function useChecklist(festivalId: string | undefined) {
   return useQuery({
     queryKey: keys.checklist(festivalId ?? ""),
-    queryFn: () =>
-      request(`/festivals/${festivalId}/checklist`, { schema: z.array(checklistItemSchema) }),
+    queryFn: () => request(`/festivals/${festivalId}/checklist`, { schema: z.array(checklistItemSchema) }),
     enabled: !!festivalId,
   });
 }
@@ -130,8 +130,7 @@ export function useCreateHousehold() {
       kind?: string;
       icon?: string | null;
       color?: string | null;
-    }) =>
-      request("/households", { method: "POST", body, schema: householdSchema }),
+    }) => request("/households", { method: "POST", body, schema: householdSchema }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.households }),
   });
 }
@@ -147,8 +146,7 @@ export function useUpdateHousehold(householdId: string) {
       panchang_city?: string;
       icon?: string;
       color?: string;
-    }) =>
-      request(`/households/${householdId}`, { method: "PATCH", body, schema: householdSchema }),
+    }) => request(`/households/${householdId}`, { method: "PATCH", body, schema: householdSchema }),
     onSuccess: () =>
       Promise.all([
         queryClient.invalidateQueries({ queryKey: keys.households }),
@@ -305,8 +303,7 @@ const STABLE = 60 * 60 * 1000; // a panchang for a given day and place never cha
 export function usePanchangDay(date: string, city: string) {
   return useQuery({
     queryKey: ["panchang", "day", date, city],
-    queryFn: () =>
-      request("/panchang/day", { query: { on: date, city }, schema: panchangDaySchema }),
+    queryFn: () => request("/panchang/day", { query: { on: date, city }, schema: panchangDaySchema }),
     staleTime: STABLE,
   });
 }
@@ -314,8 +311,7 @@ export function usePanchangDay(date: string, city: string) {
 export function useObservances(year: number, city: string) {
   return useQuery({
     queryKey: ["panchang", "observances", year, city],
-    queryFn: () =>
-      request("/panchang/observances", { query: { year, city }, schema: observanceListSchema }),
+    queryFn: () => request("/panchang/observances", { query: { year, city }, schema: observanceListSchema }),
     staleTime: STABLE,
   });
 }
@@ -484,16 +480,22 @@ export type ReceiptFile = { uri: string; name: string; type: string };
 /** Reads a receipt photo or PDF into a draft expense. Saves nothing. */
 export function useScanReceipt(householdId: string) {
   return useMutation({
-    mutationFn: (file: ReceiptFile) =>
-      upload(`/households/${householdId}/expenses/scan`, file, receiptDraftSchema),
+    mutationFn: (file: ReceiptFile) => upload(`/households/${householdId}/expenses/scan`, file, receiptDraftSchema),
   });
 }
 
 /** Reads a document (photo or PDF) into text that can be attached to a message to Utsav. */
 export function useReadDocument(householdId: string | undefined) {
   return useMutation({
-    mutationFn: (file: ReceiptFile) =>
-      upload(`/households/${householdId}/ai/documents`, file, attachedDocumentSchema),
+    mutationFn: (file: ReceiptFile) => upload(`/households/${householdId}/ai/documents`, file, attachedDocumentSchema),
+  });
+}
+
+/** Asks the support team to phone the person back. Their number is sent once and not kept by the app. */
+export function useRequestCallback() {
+  return useMutation({
+    mutationFn: (body: ReturnType<typeof toRequest>) =>
+      request("/support/callback", { method: "POST", body, schema: callbackResultSchema }),
   });
 }
 

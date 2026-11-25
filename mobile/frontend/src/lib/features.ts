@@ -9,6 +9,7 @@ export const FEATURES = [
   "event_search",
   "receipt_scan",
   "document_upload",
+  "support_callback",
 ] as const;
 export type Feature = (typeof FEATURES)[number];
 
