@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -27,10 +26,7 @@ export default function FaithScreen() {
     setChosen((current) => (current.includes(value) ? current.filter((v) => v !== value) : [...current, value]));
 
   return (
-    <LinearGradient
-      colors={[colors.maroonDark, colors.maroon, colors.saffronDeep]}
-      style={[styles.root, { paddingTop: insets.top + spacing.xl }]}
-    >
+    <View style={[styles.root, { backgroundColor: colors.maroon, paddingTop: insets.top + spacing.xl }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ gap: spacing.xl, paddingBottom: insets.bottom + spacing.xl }}
@@ -40,8 +36,8 @@ export default function FaithScreen() {
             Hello, {user.name.split(" ")[0]}
           </AppText>
           <AppText color="rgba(255,255,255,0.88)">
-            What do you celebrate? We use this to show the right calendar and festivals for you. You
-            can choose more than one, and change it any time.
+            What do you celebrate? We use this to show the right calendar and festivals for you. You can choose more
+            than one, and change it any time.
           </AppText>
         </View>
 
@@ -86,18 +82,14 @@ export default function FaithScreen() {
             loading={save.isPending}
             onPress={() => save.mutate({ faiths: chosen })}
           />
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => save.mutate({ faiths: [] })}
-            style={styles.skip}
-          >
+          <Pressable accessibilityRole="button" onPress={() => save.mutate({ faiths: [] })} style={styles.skip}>
             <AppText variant="heading" color={colors.white}>
               Prefer not to say
             </AppText>
           </Pressable>
         </View>
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 }
 

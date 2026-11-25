@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams } from "expo-router";
 import { StyleSheet, View } from "react-native";
 
@@ -7,7 +6,8 @@ import { AppText } from "@/components/AppText";
 import { Avatar } from "@/components/Avatar";
 import { Card } from "@/components/Card";
 import { Chip } from "@/components/Chip";
-import { SectionTitle } from "@/components/Rows";
+import { PatternSurface } from "@/components/Patterns";
+import { SectionTitle, scopeNote } from "@/components/Rows";
 import { Screen } from "@/components/Screen";
 import { ErrorState, ScreenSkeleton } from "@/components/States";
 import { errorProps } from "@/lib/errors";
@@ -15,8 +15,8 @@ import { useTradition } from "@/features/queries";
 import { dateInZone } from "@/lib/clock";
 import { useTimeZone, useToday } from "@/lib/clock-context";
 import { formatDate } from "@/lib/dates";
-import { categoryMeta, festivalMeta, titleCase } from "@/lib/meta";
-import { colors, fonts, radius, spacing } from "@/lib/theme";
+import { categoryMeta, festivalMeta } from "@/lib/meta";
+import { colors, fonts, spacing } from "@/lib/theme";
 
 function Detail({ title, text }: { title: string; text: string | null }) {
   if (!text) return null;
@@ -48,11 +48,13 @@ export default function TraditionDetailScreen() {
   const category = categoryMeta(tradition.category);
   const festival = festivalMeta(tradition.festival_type);
   const years = tradition.started_year ? Number(today.slice(0, 4)) - tradition.started_year : null;
-  const hasDetails = [tradition.description, tradition.significance, tradition.origin, tradition.instructions].some(Boolean);
+  const hasDetails = [tradition.description, tradition.significance, tradition.origin, tradition.instructions].some(
+    Boolean,
+  );
 
   return (
     <Screen refreshing={query.isRefetching} onRefresh={() => void query.refetch()}>
-      <LinearGradient colors={festival.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+      <PatternSurface color={festival.gradient[0]} size={260} style={styles.hero}>
         <Ionicons name={category.icon} size={40} color="#FFFFFF" />
         <AppText variant="title" color="#FFFFFF">
           {tradition.name}
@@ -62,14 +64,13 @@ export default function TraditionDetailScreen() {
             Passed down for {years} {years === 1 ? "year" : "years"}
           </AppText>
         ) : null}
-      </LinearGradient>
+      </PatternSurface>
 
       <View style={styles.chips}>
         <Chip label={festival.label} icon={festival.icon} />
         <Chip label={category.label} />
-        <Chip label={`${titleCase(tradition.scope)} tradition`} />
+        {scopeNote(tradition) ? <Chip label={scopeNote(tradition)!} /> : null}
         {tradition.region ? <Chip label={tradition.region} /> : null}
-        {!tradition.active ? <Chip label="Paused" tone="warning" /> : null}
       </View>
 
       {hasDetails ? (
@@ -121,9 +122,11 @@ export default function TraditionDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  hero: { borderRadius: radius.lg, padding: spacing.xl, gap: spacing.sm, overflow: "hidden" },
+  hero: { padding: spacing.xl, gap: spacing.sm },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   history: { flexDirection: "row", gap: spacing.lg, alignItems: "flex-start" },
-  year: { fontFamily: fonts.display, fontSize: 28, color: colors.saffronDeep, minWidth: 68 },
+  // An explicit line height: the display face is taller than its default line box, and without room
+  // the tops of the digits are cut off by the card.
+  year: { fontFamily: fonts.display, fontSize: 28, lineHeight: 36, color: colors.saffronDeep, minWidth: 68 },
   performer: { flexDirection: "row", alignItems: "center", gap: 6 },
 });

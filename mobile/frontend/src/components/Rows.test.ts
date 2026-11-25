@@ -1,7 +1,7 @@
 import { pastLabel, scopeNote } from "@/components/Rows";
 import type { Tradition } from "@/lib/schemas";
 
-const tradition = (over: Partial<Tradition>) => ({ scope: "FAMILY", active: true, ...over }) as Tradition;
+const tradition = (over: Partial<Tradition>) => ({ scope: "family", active: true, ...over }) as Tradition;
 
 describe("festival rows", () => {
   it("says nothing in words while the days badge already says it", () => {
@@ -19,9 +19,14 @@ describe("tradition rows", () => {
     expect(scopeNote(tradition({}))).toBeNull();
   });
 
+  it("treats the scope the same whatever its case, since the server stores it in lower case", () => {
+    expect(scopeNote(tradition({ scope: "FAMILY" }))).toBeNull();
+    expect(scopeNote(tradition({ scope: "Family" }))).toBeNull();
+  });
+
   it("says so when a tradition is paused or is not the family's own", () => {
     expect(scopeNote(tradition({ active: false }))).toBe("Paused");
-    expect(scopeNote(tradition({ scope: "COMMUNITY" }))).toBe("Community tradition");
-    expect(scopeNote(tradition({ scope: "COMMUNITY", active: false }))).toBe("Community tradition · Paused");
+    expect(scopeNote(tradition({ scope: "community" }))).toBe("Community tradition");
+    expect(scopeNote(tradition({ scope: "community", active: false }))).toBe("Community tradition · Paused");
   });
 });

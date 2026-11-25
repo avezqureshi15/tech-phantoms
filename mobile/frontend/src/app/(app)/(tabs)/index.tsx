@@ -11,6 +11,7 @@ import { Glass } from "@/components/Glass";
 import { GroupBadge } from "@/components/GroupBadge";
 import { IconTile } from "@/components/IconTile";
 import { ListRow } from "@/components/ListRow";
+import { UtsavCard } from "@/components/UtsavCard";
 import { FadeInUp, PressableScale } from "@/components/Motion";
 import { SectionTitle } from "@/components/Rows";
 import { Screen } from "@/components/Screen";
@@ -21,10 +22,8 @@ import {
   useFeatures,
   useFestival,
   useFestivals,
-  useHousehold,
   useIsAdmin,
   useToday as useTodayPage,
-  useTraditions,
 } from "@/features/queries";
 import { useCurrentUser } from "@/lib/auth";
 import { now } from "@/lib/clock";
@@ -95,8 +94,6 @@ export default function HomeScreen() {
   const { household } = useActiveHousehold();
   const isAdmin = useIsAdmin(household?.id);
   const festivals = useFestivals(household?.id);
-  const members = useHousehold(household?.id);
-  const traditions = useTraditions(household?.id);
   const page = useTodayPage(today, null);
   const featured = useMemo(
     () => (festivals.data ? pickFeatured(festivals.data, today) : undefined),
@@ -127,36 +124,6 @@ export default function HomeScreen() {
   const pending = items.filter((i) => !i.completed).slice(0, 4);
   const upcomingEvents = (detail.data?.events ?? []).filter((e) => daysUntil(e.event_date, today) >= 0).slice(0, 3);
   const ahead = (page.data?.upcoming ?? []).slice(0, 3);
-
-  const stats: {
-    icon: IconName;
-    value: number | undefined;
-    label: string;
-    href: string;
-  }[] = [
-    {
-      icon: "people",
-      value: members.data?.members.length,
-      label: isHousehold ? "Family" : "Members",
-      href: "/family",
-    },
-    ...(isHousehold
-      ? [
-          {
-            icon: "flame" as IconName,
-            value: traditions.data?.length,
-            label: "Traditions",
-            href: "/traditions",
-          },
-        ]
-      : []),
-    {
-      icon: "calendar",
-      value: festivals.data.length,
-      label: "Festivals",
-      href: "/festivals",
-    },
-  ];
 
   return (
     <Screen topInset refreshing={refreshing} onRefresh={refresh}>
@@ -211,47 +178,27 @@ export default function HomeScreen() {
         </FadeInUp>
       ) : null}
 
-      {features.on("utsav") ? (
+      {!featured ? (
         <FadeInUp delay={60}>
-          <ListRow
-            leading={<IconTile icon="sparkles" gradient={[colors.saffronDeep, colors.saffron]} />}
-            title="Ask Utsav"
-            subtitle="Plan hosting, festivals and more"
-            onPress={() => router.push("/utsav")}
+          <Card style={styles.welcome}>
+            <IconTile icon="calendar" size={64} />
+            <AppText variant="title" style={styles.center}>
+              Plan your first festival
+            </AppText>
+            <AppText color={colors.muted} style={styles.center}>
+              Add Diwali, Eid, Christmas, Pongal, whatever your group celebrates, and bring everyone together.
+            </AppText>
+          </Card>
+        </FadeInUp>
+      ) : (
+        <FadeInUp delay={60}>
+          <FestivalHero
+            festival={featured}
+            progress={{ done, total: items.length }}
+            onPress={() => router.push(`/festival/${featured.id}`)}
           />
         </FadeInUp>
-      ) : null}
-
-      {features.on("utsav") && features.on("utsav_voice") && features.on("elder_mode") ? (
-        <FadeInUp delay={70}>
-          <ListRow
-            leading={<IconTile icon="mic" tint={colors.success} />}
-            title="Talk with Utsav"
-            subtitle="Voice only, made easy for elders"
-            onPress={() => router.push({ pathname: "/voice", params: { mode: "elder" } })}
-          />
-        </FadeInUp>
-      ) : null}
-      {features.on("utsav") && features.on("utsav_voice") && features.on("recite_mode") ? (
-        <FadeInUp delay={80}>
-          <ListRow
-            leading={<IconTile icon="musical-notes" tint={colors.gold} />}
-            title="Practise a prayer"
-            subtitle="Say it line by line and get gentle corrections"
-            onPress={() => router.push({ pathname: "/voice", params: { mode: "recite" } })}
-          />
-        </FadeInUp>
-      ) : null}
-      {features.on("support_callback") ? (
-        <FadeInUp delay={90}>
-          <ListRow
-            leading={<IconTile icon="call" tint={colors.saffronDeep} />}
-            title="Need help? Get a call back"
-            subtitle="Our team phones you, in your language"
-            onPress={() => router.push("/support")}
-          />
-        </FadeInUp>
-      ) : null}
+      )}
 
       {page.data ? (
         <FadeInUp delay={80}>
@@ -270,27 +217,16 @@ export default function HomeScreen() {
         </FadeInUp>
       ) : null}
 
-      {!featured ? (
-        <FadeInUp delay={110}>
-          <Card style={styles.welcome}>
-            <IconTile icon="calendar" size={64} />
-            <AppText variant="title" style={styles.center}>
-              Plan your first festival
-            </AppText>
-            <AppText color={colors.muted} style={styles.center}>
-              Add Diwali, Eid, Christmas, Pongal, whatever your group celebrates, and bring everyone together.
-            </AppText>
-          </Card>
-        </FadeInUp>
-      ) : (
-        <FadeInUp delay={110}>
-          <FestivalHero
-            festival={featured}
-            progress={{ done, total: items.length }}
-            onPress={() => router.push(`/festival/${featured.id}`)}
-          />
-        </FadeInUp>
-      )}
+      <FadeInUp delay={90}>
+        <UtsavCard
+          ask={features.on("utsav")}
+          talk={features.on("utsav") && features.on("utsav_voice") && features.on("elder_mode")}
+          pray={features.on("utsav") && features.on("utsav_voice") && features.on("recite_mode")}
+          onAsk={() => router.push("/utsav")}
+          onTalk={() => router.push({ pathname: "/voice", params: { mode: "elder" } })}
+          onPray={() => router.push({ pathname: "/voice", params: { mode: "recite" } })}
+        />
+      </FadeInUp>
 
       <FadeInUp delay={150}>
         <View style={styles.quick}>
@@ -304,27 +240,6 @@ export default function HomeScreen() {
             >
               <IconTile icon={q.icon} size={40} />
               <AppText variant="label">{q.label}</AppText>
-            </PressableScale>
-          ))}
-        </View>
-      </FadeInUp>
-
-      <FadeInUp delay={190}>
-        <View style={styles.stats}>
-          {stats.map((stat) => (
-            <PressableScale
-              key={stat.label}
-              accessibilityRole="button"
-              accessibilityLabel={`${stat.label}: ${stat.value ?? ""}`}
-              onPress={() => router.push(stat.href as never)}
-              style={styles.stat}
-            >
-              <AppText variant="title" style={styles.statValue}>
-                {stat.value ?? "–"}
-              </AppText>
-              <AppText variant="caption" color={colors.muted}>
-                {stat.label}
-              </AppText>
             </PressableScale>
           ))}
         </View>
@@ -402,6 +317,22 @@ export default function HomeScreen() {
           })}
         </FadeInUp>
       ) : null}
+
+      {features.on("support_callback") ? (
+        <FadeInUp delay={320}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Need help? Get a call back"
+            onPress={() => router.push("/support")}
+            style={styles.help}
+          >
+            <Ionicons name="call-outline" size={18} color={colors.muted} />
+            <AppText variant="label" color={colors.muted}>
+              Need help? Get a call back
+            </AppText>
+          </Pressable>
+        </FadeInUp>
+      ) : null}
     </Screen>
   );
 }
@@ -437,6 +368,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xl,
   },
   center: { textAlign: "center" },
+  help: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 48 },
   quick: { flexDirection: "row", gap: spacing.md },
   quickItem: {
     flex: 1,
@@ -448,15 +380,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.95)",
   },
-  stats: { flexDirection: "row", gap: spacing.md },
-  stat: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: "rgba(94,22,38,0.06)",
-  },
-  statValue: { fontSize: 26, lineHeight: 30 },
   section: { gap: spacing.md },
   dateBadge: {
     width: 44,

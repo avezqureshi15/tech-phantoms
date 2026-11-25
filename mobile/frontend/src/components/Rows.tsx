@@ -132,7 +132,7 @@ function DaysBadge({ festival }: { festival: Festival }) {
  * family's own. Every tradition being "Family tradition" tells nobody anything. */
 export function scopeNote(tradition: Tradition): string | null {
   const notes = [
-    tradition.scope === "FAMILY" ? null : `${titleCase(tradition.scope)} tradition`,
+    tradition.scope.toLowerCase() === "family" ? null : `${titleCase(tradition.scope)} tradition`,
     tradition.active ? null : "Paused",
   ].filter(Boolean);
   return notes.length ? notes.join(" · ") : null;
